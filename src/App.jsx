@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import MainPage from './MainPage.jsx'; 
-import ItineraryBuilder from './ItineraryBuilder.jsx';
+import MainPage from './mainpage'; // 소문자로 변경
+import ItineraryBuilder from './itinerarybuilder'; // 소문자로 변경
 
 function App() {
-  const [view, setView] = useState('main'); // 'main' 또는 'builder'
+  const [view, setView] = useState('main');
 
   return (
     <>
