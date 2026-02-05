@@ -1,18 +1,29 @@
 import React, { useState } from 'react';
-import MainPage from './mainpage'; // 소문자로 변경
-import ItineraryBuilder from './itinerarybuilder'; // 소문자로 변경
+import MainPage from './mainpage';
+import ItineraryBuilder from './itinerarybuilder';
+import Explorer from './explorer';
 
 function App() {
-  const [view, setView] = useState('main');
+  const [view, setView] = useState('main'); // 'main', 'builder', 'explorer'
 
   return (
-    <>
-      {view === 'main' ? (
-        <MainPage onStartBuilder={() => setView('builder')} />
-      ) : (
+    <div className="min-h-screen bg-gmg-bg font-sans">
+      {view === 'main' && (
+        <MainPage 
+          onStartBuilder={() => setView('builder')} 
+          onStartExplorer={() => setView('explorer')} 
+        />
+      )}
+      {view === 'builder' && (
         <ItineraryBuilder onBack={() => setView('main')} />
       )}
-    </>
+      {view === 'explorer' && (
+        <Explorer 
+          onBack={() => setView('main')} 
+          onStartBuilder={() => setView('builder')} 
+        />
+      )}
+    </div>
   );
 }
 
