@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { ChevronLeft, Users, Calendar, Moon, MapPin, CheckCircle2, Clock, AlertCircle, MessageCircle, Search, Hash, ChevronDown } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+// Compass 아이콘 추가 임포트 확인!
+import { ChevronLeft, Users, Calendar, Moon, MapPin, CheckCircle2, Clock, AlertCircle, MessageCircle, Search, Hash, ChevronDown, Compass } from 'lucide-react';
+import { toPng } from 'html-to-image';
 
 const ItineraryBuilder = ({ onBack }) => {
   const [step, setStep] = useState(1);
+  const contentRef = useRef(null);
   
   const [formData, setFormData] = useState({
     people: 4,
@@ -68,12 +71,34 @@ const ItineraryBuilder = ({ onBack }) => {
     }));
   };
 
+  // --- 이미지 저장 함수 ---
+  const handleExportImage = async () => {
+    if (contentRef.current === null) return;
+    
+    try {
+      // 캡처 배경색을 흰색으로 변경하여 더 깔끔하게 저장
+      const dataUrl = await toPng(contentRef.current, { cacheBust: true, backgroundColor: '#ffffff', style: { padding: '20px' } });
+      const link = document.createElement('a');
+      link.download = `GoMongol_Wishlist_${formData.startDate || 'draft'}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      setTimeout(() => {
+          alert('위시리스트가 앨범에 저장되었습니다! \n저장된 이미지를 투어사에 보내 상담을 시작해보세요.');
+      }, 500);
+
+    } catch (err) {
+      console.error('이미지 저장 실패:', err);
+      alert('이미지 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   const getButtonState = () => {
     if (step === 1) return { text: '다음 단계로', disabled: !formData.startDate, isActive: !!formData.startDate };
     if (step === 2) {
       if (formData.selectedRegions.length === 0) return { text: '지역을 골라주세요', disabled: true, isActive: false };
       if (formData.spots.length === 0) return { text: '장소를 골라주세요', disabled: true, isActive: false };
-      return { text: '최종 일정 확인하기', disabled: false, isActive: true };
+      return { text: '위시리스트 확인하기', disabled: false, isActive: true };
     }
     return { text: '', disabled: false, isActive: true };
   };
@@ -83,17 +108,17 @@ const ItineraryBuilder = ({ onBack }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gmg-bg font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative text-gray-800">
       
-      {/* 1. Header */}
+      {/* Header */}
       <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-50">
         <button onClick={prevStep} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <ChevronLeft size={24} className="text-gray-600" />
         </button>
         <h1 className="flex-1 text-center text-lg font-bold pr-8">
-          {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : '나의 맞춤 일정표'}
+          {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : '위시리스트 확인'}
         </h1>
       </header>
 
-      {/* 2. Progress Bar */}
+      {/* Progress Bar */}
       {step < 3 && (
         <div className="w-full h-1.5 bg-gray-100">
           <div 
@@ -219,47 +244,71 @@ const ItineraryBuilder = ({ onBack }) => {
         )}
 
         {step === 3 && (
-          /* --- STEP 3: 최종 요약 일정표 --- */
-          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
-            <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-50 flex justify-around items-center">
-                <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
-                <div className="w-px h-8 bg-gray-100" />
-                <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">인원</span><span className="text-sm font-black">{formData.people}명</span></div>
-                <div className="w-px h-8 bg-gray-100" />
-                <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black">{formData.nights}박 {formData.nights+1}일</span></div>
+          /* --- STEP 3: 최종 위시리스트 (UI 개선 버전) --- */
+          // 캡처 영역을 흰색 카드 형태로 깔끔하게 감쌈
+          <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
+            
+            {/* 1. 상단 브랜딩 (비어보이지 않게 개선) */}
+            <div className="flex items-center gap-2 mb-6 opacity-80">
+                <Compass size={18} className="text-gmg-camel" />
+                <span className="text-lg font-black text-gmg-camel italic tracking-tighter">Go몽골</span>
             </div>
 
-            <h3 className="text-2xl font-black text-gray-800 px-2 mt-8">
-                위니님의 <span className="text-gmg-camel">몽골 여행</span> 제안서
+            {/* 2. 메인 타이틀 (요청하신 문구로 변경 및 상단 배치) */}
+            <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">
+                여행자님의<br/>
+                <span className="text-gmg-camel">몽골 여행 위시리스트</span>
             </h3>
 
-            <div className="space-y-4">
-                {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
-                    <div key={region.id} className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
-                        <div className="flex justify-between items-center mb-5">
-                            <h4 className="text-lg font-black text-gray-800 flex items-center gap-2">
-                                <span className="text-2xl">{region.icon}</span> {region.name}
-                            </h4>
-                            <span className="text-[10px] bg-gray-50 text-gray-400 px-2 py-1 rounded-lg font-bold">UB에서 {region.travelTime}</span>
+            {/* 3. [ 기본 정보 ] 섹션 */}
+            <section className="mb-8">
+                <h4 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-1 before:content-['['] after:content-[']'] before:text-gmg-camel after:text-gmg-camel">
+                    기본 정보
+                </h4>
+                <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 flex justify-around items-center">
+                    <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
+                    <div className="w-px h-8 bg-gray-200" />
+                    <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">인원</span><span className="text-sm font-black">{formData.people}명</span></div>
+                    <div className="w-px h-8 bg-gray-200" />
+                    <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black">{formData.nights}박 {formData.nights+1}일</span></div>
+                </div>
+            </section>
+
+            {/* 4. [ 투어 정보 ] 섹션 */}
+            <section>
+                <h4 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-1 before:content-['['] after:content-[']'] before:text-gmg-camel after:text-gmg-camel">
+                    투어 정보
+                </h4>
+                <div className="space-y-4">
+                    {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
+                        <div key={region.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 relative">
+                            <div className="flex justify-between items-center mb-4">
+                                <h4 className="text-base font-black text-gray-800 flex items-center gap-2">
+                                    <span className="text-xl">{region.icon}</span> {region.name}
+                                </h4>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {region.spots.filter(s => formData.spots.includes(s)).map(spot => (
+                                    <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-xs font-bold border border-gmg-green/10 flex items-center gap-1">
+                                        <Hash size={10} className="opacity-50" /> {spot}
+                                    </span>
+                                ))}
+                            </div>
+                             <div className="absolute top-5 right-5 text-[10px] bg-gray-50 text-gray-400 px-2 py-1 rounded-lg font-bold">UB에서 {region.travelTime}</div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            {region.spots.filter(s => formData.spots.includes(s)).map(spot => (
-                                <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-xs font-bold border border-gmg-green/10 flex items-center gap-1">
-                                    <Hash size={10} className="opacity-50" /> {spot}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <p className="text-center text-[10px] text-gray-400 font-medium py-4">
-                본 일정표는 Go몽골 MVP 버전에서 생성되었습니다.
+                    ))}
+                </div>
+            </section>
+
+            {/* 하단 워터마크 */}
+            <p className="text-center text-[10px] text-gray-300 font-medium py-6 mt-4">
+                Created by Go몽골 | 나만의 몽골 여행 만들기
             </p>
           </div>
         )}
       </main>
 
-      {/* 3. Footer Button */}
+      {/* Footer Button */}
       <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
         {step < 3 ? (
             <button 
@@ -276,7 +325,7 @@ const ItineraryBuilder = ({ onBack }) => {
         ) : (
             <div className="flex gap-3">
                 <button 
-                    onClick={() => alert('견적 상담을 연결합니다!')}
+                    onClick={handleExportImage}
                     className="flex-1 bg-gmg-camel text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                     <MessageCircle size={18} /> 견적 상담하기
