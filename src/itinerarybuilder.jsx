@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-// Compass 아이콘 추가 임포트 확인!
 import { ChevronLeft, Users, Calendar, Moon, MapPin, CheckCircle2, Clock, AlertCircle, MessageCircle, Search, Hash, ChevronDown, Compass } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -71,25 +70,30 @@ const ItineraryBuilder = ({ onBack }) => {
     }));
   };
 
-  // --- 이미지 저장 함수 ---
+  // --- 이미지 저장 함수 (안내 문구 수정) ---
   const handleExportImage = async () => {
     if (contentRef.current === null) return;
     
     try {
-      // 캡처 배경색을 흰색으로 변경하여 더 깔끔하게 저장
-      const dataUrl = await toPng(contentRef.current, { cacheBust: true, backgroundColor: '#ffffff', style: { padding: '20px' } });
+      // 캡처 스타일 조정: 배경 흰색, 여백 추가로 그림자 잘림 방지
+      const dataUrl = await toPng(contentRef.current, { 
+          cacheBust: true, 
+          backgroundColor: '#ffffff',
+          style: { padding: '30px' } // 여백을 넉넉히 주어 노이즈 방지
+      });
       const link = document.createElement('a');
       link.download = `GoMongol_Wishlist_${formData.startDate || 'draft'}.png`;
       link.href = dataUrl;
       link.click();
       
+      // 모바일 환경을 고려한 현실적인 안내 문구
       setTimeout(() => {
-          alert('위시리스트가 앨범에 저장되었습니다! \n저장된 이미지를 투어사에 보내 상담을 시작해보세요.');
+          alert('✨ 나만의 위시리스트가 생성되었습니다!\n\n화면에 뜬 이미지를 꾹 눌러서 앨범에 저장해주세요. 저장한 이미지를 투어사에 보내면 상담이 쉬워집니다!');
       }, 500);
 
     } catch (err) {
       console.error('이미지 저장 실패:', err);
-      alert('이미지 저장 중 오류가 발생했습니다.');
+      alert('이미지 생성 중 오류가 발생했습니다. 다시 시도해 주세요.');
     }
   };
 
@@ -130,32 +134,35 @@ const ItineraryBuilder = ({ onBack }) => {
 
       <main className="flex-1 px-6 py-8 overflow-y-auto pb-40">
         {step === 1 && (
-          /* --- STEP 1: 여행 기본 정보 (모바일 최적화) --- */
-          <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-300">
+          /* --- STEP 1: 여행 기본 정보 (UI 깨짐 수정 - 확실한 세로 배치) --- */
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <section>
               <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-4 uppercase tracking-widest">
                 <Users size={14} /> 여행 인원
               </label>
               <div className="flex items-center justify-between bg-white p-5 rounded-3xl shadow-sm border border-gray-50">
-                <button onClick={() => setFormData(p => ({...p, people: Math.max(1, p.people - 1)}))} className="w-14 h-14 rounded-2xl border-2 border-gray-100 text-2xl font-bold text-gray-300">-</button>
+                <button onClick={() => setFormData(p => ({...p, people: Math.max(1, p.people - 1)}))} className="w-14 h-14 rounded-2xl border-2 border-gray-100 text-2xl font-bold text-gray-300 active:bg-gray-50 transition-colors">-</button>
                 <div className="text-center">
                   <span className="text-4xl font-black text-gray-800">{formData.people}</span>
                   <span className="ml-2 text-gray-400 font-bold text-lg">명</span>
                 </div>
-                <button onClick={() => setFormData(p => ({...p, people: p.people + 1}))} className="w-14 h-14 rounded-2xl border-2 border-gmg-camel text-2xl font-bold text-gmg-camel">+</button>
+                <button onClick={() => setFormData(p => ({...p, people: p.people + 1}))} className="w-14 h-14 rounded-2xl border-2 border-gmg-camel text-2xl font-bold text-gmg-camel active:bg-orange-50 transition-colors">+</button>
               </div>
             </section>
 
+            {/* 여기 space-y-6 클래스가 핵심입니다! 요소들을 세로로 간격을 두고 배치합니다. */}
             <section className="space-y-6">
               <div className="w-full">
                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-3 uppercase tracking-widest">
                   <Calendar size={14} /> 출발일
                 </label>
-                <input 
-                  type="date" 
-                  className="w-full bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-gmg-camel/20 min-h-[56px]" 
-                  onChange={(e) => setFormData({...formData, startDate: e.target.value})} 
-                />
+                <div className="relative">
+                    <input 
+                    type="date" 
+                    className="w-full bg-white p-4 pr-5 rounded-2xl border border-gray-100 shadow-sm text-base focus:outline-none focus:ring-2 focus:ring-gmg-camel/20 appearance-none block min-h-[56px]" 
+                    onChange={(e) => setFormData({...formData, startDate: e.target.value})} 
+                    />
+                </div>
               </div>
 
               <div className="w-full">
@@ -164,7 +171,7 @@ const ItineraryBuilder = ({ onBack }) => {
                 </label>
                 <div className="relative">
                   <select 
-                    className="w-full bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-base focus:outline-none appearance-none min-h-[56px]" 
+                    className="w-full bg-white p-4 rounded-2xl border border-gray-100 shadow-sm text-base focus:outline-none appearance-none cursor-pointer min-h-[56px] block" 
                     value={formData.nights} 
                     onChange={(e) => setFormData({...formData, nights: parseInt(e.target.value)})}
                   >
@@ -172,7 +179,7 @@ const ItineraryBuilder = ({ onBack }) => {
                       <option key={n} value={n}>{n}박 {n+1}일</option>
                     ))}
                   </select>
-                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300">
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                     <ChevronDown size={20} />
                   </div>
                 </div>
@@ -244,17 +251,17 @@ const ItineraryBuilder = ({ onBack }) => {
         )}
 
         {step === 3 && (
-          /* --- STEP 3: 최종 위시리스트 (UI 개선 버전) --- */
-          // 캡처 영역을 흰색 카드 형태로 깔끔하게 감쌈
-          <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm relative overflow-hidden">
+          /* --- STEP 3: 최종 위시리스트 (노이즈 수정 버전) --- */
+          // overflow-hidden 제거 및 패딩 조정
+          <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm relative">
             
-            {/* 1. 상단 브랜딩 (비어보이지 않게 개선) */}
+            {/* 1. 상단 브랜딩 */}
             <div className="flex items-center gap-2 mb-6 opacity-80">
                 <Compass size={18} className="text-gmg-camel" />
                 <span className="text-lg font-black text-gmg-camel italic tracking-tighter">Go몽골</span>
             </div>
 
-            {/* 2. 메인 타이틀 (요청하신 문구로 변경 및 상단 배치) */}
+            {/* 2. 메인 타이틀 */}
             <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">
                 여행자님의<br/>
                 <span className="text-gmg-camel">몽골 여행 위시리스트</span>
@@ -266,7 +273,7 @@ const ItineraryBuilder = ({ onBack }) => {
                     기본 정보
                 </h4>
                 <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 flex justify-around items-center">
-                    <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
+                    <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate ? formData.startDate.replace(/-/g, '.') : '-'}</span></div>
                     <div className="w-px h-8 bg-gray-200" />
                     <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">인원</span><span className="text-sm font-black">{formData.people}명</span></div>
                     <div className="w-px h-8 bg-gray-200" />
@@ -274,12 +281,12 @@ const ItineraryBuilder = ({ onBack }) => {
                 </div>
             </section>
 
-            {/* 4. [ 투어 정보 ] 섹션 */}
+            {/* 4. [ 투어 정보 ] 섹션 (카드 우측 여백 추가로 노이즈 방지) */}
             <section>
                 <h4 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-1 before:content-['['] after:content-[']'] before:text-gmg-camel after:text-gmg-camel">
                     투어 정보
                 </h4>
-                <div className="space-y-4">
+                <div className="space-y-4 pr-1"> 
                     {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
                         <div key={region.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 relative">
                             <div className="flex justify-between items-center mb-4">
