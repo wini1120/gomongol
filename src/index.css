@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* 아래는 우리가 이전에 설정한 색상들을 v4 방식으로 등록하는 겁니다 */
+@theme {
+  --color-gmg-camel: #D4A373;
+  --color-gmg-green: #586F50;
+  --color-gmg-bg: #F9F7F2;
+}
+
+/* 스크롤바 숨기기 */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
