@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import MainPage from './MainPage';
-import ItineraryBuilder from './ItineraryBuilder';
+import MainPage from './MainPage.jsx'; 
+import ItineraryBuilder from './ItineraryBuilder.jsx';
 
 function App() {
   const [view, setView] = useState('main'); // 'main' 또는 'builder'
