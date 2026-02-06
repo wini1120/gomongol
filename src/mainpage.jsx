@@ -8,9 +8,9 @@ const MainPage = ({ onStartBuilder, onStartExplorer }) => {
   const [isContactOpen, setIsContactOpen] = useState(false);
 
   const agencies = [
-    { id: 1, name: "고비 노마드 투어", rating: 4.9, reviews: 128, color: "bg-orange-50", desc: "고비 사막 투어 전문 | 한국어 가이드 배정" },
-    { id: 2, name: "골든 이글 트래블", rating: 4.8, reviews: 95, color: "bg-blue-50", desc: "프리미엄 럭셔리 게르 | 최신 스타리아 보유" },
-    { id: 3, name: "몽골리아 익스프레스", rating: 4.7, reviews: 210, color: "bg-green-50", desc: "북부 홉스굴 전문 | 승마 트레킹 특화" },
+    { id: 1, name: "이지조이트래블", rating: 4.9, reviews: 128, color: "bg-orange-50", desc: "고비 사막 투어 전문 | 한국어 가이드 배정" },
+    { id: 2, name: "고비트래블", rating: 4.8, reviews: 95, color: "bg-blue-50", desc: "프리미엄 럭셔리 게르 | 최신 스타리아 보유" },
+    { id: 3, name: "푸제투어", rating: 4.7, reviews: 210, color: "bg-green-50", desc: "북부 홉스굴 전문 | 승마 트레킹 특화" },
   ];
 
   return (
@@ -29,7 +29,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer }) => {
                 <div className="inline-block px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">Partner</div>
                 <h2 className="text-3xl font-black mb-6">몽골 여행사<br/>성공 파트너,<br/>Go몽골</h2>
                 <div className="space-y-5">
-                  <div className="flex gap-4"><Zap size={20} className="shrink-0 text-orange-200"/><p className="text-sm opacity-90 font-medium"><b>준비된 고객 연결:</b> 직접 루트를 설계한 고관여 고객 매칭</p></div>
+                  <div className="flex gap-4"><Zap size={20} className="shrink-0 text-orange-200"/><p className="text-sm opacity-90 font-medium"><b>손쉬운 고객 연결:</b>고객이 직접 일정표와 함께 상담 신청</p></div>
                   <div className="flex gap-4"><ShieldCheck size={20} className="shrink-0 text-orange-200"/><p className="text-sm opacity-90 font-medium"><b>브랜드 신뢰도:</b> Go몽골 인증 마크 부여</p></div>
                 </div>
               </div>
@@ -38,7 +38,6 @@ const MainPage = ({ onStartBuilder, onStartExplorer }) => {
                 <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                   <input type="text" className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-gmg-camel" placeholder="여행사 이름" />
                   <input type="text" className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-gmg-camel" placeholder="담당자 연락처 (카톡 ID 등)" />
-                  <textarea className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm h-24 focus:ring-2 focus:ring-gmg-camel" placeholder="여행사 강점 (차량, 전문지역 등)" />
                   <button className="w-full bg-gmg-camel text-white py-4 rounded-2xl font-black shadow-lg shadow-orange-100 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">신청 완료하기 <Send size={18} /></button>
                 </form>
               </div>
