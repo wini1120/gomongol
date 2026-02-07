@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { 
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
-  Search, Hash, ChevronDown, Compass 
+  Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 
@@ -45,6 +45,13 @@ const ItineraryBuilder = ({ onBack }) => {
     }
   ];
 
+  // [B2B] 학습한 여행사 데이터
+  const partnerAgencies = [
+    { id: 1, name: "이지조이트래블", rating: 4.9, reviews: 128, color: "bg-orange-50" },
+    { id: 2, name: "고비트래블", rating: 4.8, reviews: 95, color: "bg-blue-50" },
+    { id: 3, name: "푸제투어", rating: 4.7, reviews: 210, color: "bg-green-50" },
+  ];
+
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => (step === 1 ? onBack() : setStep(prev => prev - 1));
 
@@ -73,32 +80,30 @@ const ItineraryBuilder = ({ onBack }) => {
     }));
   };
 
-  // --- 이미지 저장 기능 ---
   const handleExportImage = async () => {
     if (contentRef.current === null) return;
-    
     try {
-      // 노이즈(그림자 잘림) 방지를 위해 여백(padding)을 충분히 준 상태로 캡처
       const dataUrl = await toPng(contentRef.current, { 
         cacheBust: true, 
         backgroundColor: '#ffffff',
-        style: {
-          padding: '40px',
-          borderRadius: '0px' // 저장 이미지 테두리 깔끔하게
-        }
+        style: { padding: '40px', borderRadius: '0px' }
       });
       const link = document.createElement('a');
       link.download = `GoMongol_Wishlist.png`;
       link.href = dataUrl;
       link.click();
-      
       setTimeout(() => {
           alert('✨ 위시리스트 이미지가 생성되었습니다!\n\n화면의 이미지를 꾹 눌러서 저장하거나, 생성된 파일을 확인해 주세요.');
       }, 500);
     } catch (err) {
       console.error('이미지 저장 실패:', err);
-      alert('이미지 생성에 실패했습니다.');
     }
+  };
+
+  // [신규] Step 4로 이동하는 함수 추가
+  const handleConsulting = async () => {
+    await handleExportImage();
+    setStep(4);
   };
 
   const getButtonState = () => {
@@ -115,29 +120,25 @@ const ItineraryBuilder = ({ onBack }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gmg-bg font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative text-gray-800">
       
-      {/* Header */}
       <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-50">
         <button onClick={prevStep} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <ChevronLeft size={24} className="text-gray-600" />
         </button>
         <h1 className="flex-1 text-center text-lg font-bold pr-8">
-          {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : '위시리스트 확인'}
+          {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : step === 3 ? '위시리스트 확인' : '상담 여행사 선택'}
         </h1>
       </header>
 
-      {/* Progress Bar */}
-      {step < 3 && (
-        <div className="w-full h-1.5 bg-gray-100">
-          <div 
-            className="h-full bg-gmg-camel transition-all duration-500 ease-out" 
-            style={{ width: `${(step / 2) * 100}%` }} 
-          />
-        </div>
-      )}
+      {/* Progress Bar (4단계 대응) */}
+      <div className="w-full h-1.5 bg-gray-100">
+        <div 
+          className="h-full bg-gmg-camel transition-all duration-500 ease-out" 
+          style={{ width: `${(step / 4) * 100}%` }} 
+        />
+      </div>
 
       <main className="flex-1 px-6 py-8 overflow-y-auto pb-40">
         {step === 1 && (
-          /* --- STEP 1: 입력창 아이콘 추가 버전 --- */
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <section>
               <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-4 uppercase tracking-widest">
@@ -193,7 +194,6 @@ const ItineraryBuilder = ({ onBack }) => {
         )}
 
         {step === 2 && (
-          /* --- STEP 2: 지역 및 스팟 --- */
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <section>
               <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-4 uppercase tracking-widest">
@@ -228,23 +228,15 @@ const ItineraryBuilder = ({ onBack }) => {
         )}
 
         {step === 3 && (
-          /* --- STEP 3: 위시리스트 디자인 리뉴얼 --- */
           <div className="pr-1 overflow-visible">
             <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-visible">
               <div className="flex items-center gap-2 mb-6 opacity-80">
                   <Compass size={20} className="text-gmg-camel" />
-                  <span className="text-xl font-black text-gmg-camel italic tracking-tighter">Go몽골</span>
+                  <span className="text-xl font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
               </div>
-
-              <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">
-                  여행자님의<br/>
-                  <span className="text-gmg-camel">몽골 여행 위시리스트</span>
-              </h3>
-
+              <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">여행자님의<br/><span className="text-gmg-camel font-black">몽골 여행 위시리스트</span></h3>
               <section className="mb-8">
-                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">
-                      <span className="text-gmg-camel">[</span> 기본 정보 <span className="text-gmg-camel">]</span>
-                  </h4>
+                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">기본 정보</h4>
                   <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 flex justify-around items-center">
                       <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
                       <div className="w-px h-8 bg-gray-200" />
@@ -253,24 +245,15 @@ const ItineraryBuilder = ({ onBack }) => {
                       <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black">{formData.nights}박 {formData.nights+1}일</span></div>
                   </div>
               </section>
-
               <section>
-                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">
-                      <span className="text-gmg-camel">[</span> 투어 정보 <span className="text-gmg-camel">]</span>
-                  </h4>
+                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">투어 정보</h4>
                   <div className="space-y-4">
                       {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
                           <div key={region.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 relative">
-                              <div className="flex justify-between items-center mb-4">
-                                  <h4 className="text-base font-black text-gray-800 flex items-center gap-2">
-                                      <span className="text-xl">{region.icon}</span> {region.name}
-                                  </h4>
-                              </div>
+                              <h4 className="text-base font-black text-gray-800 flex items-center gap-2 mb-4"><span>{region.icon}</span> {region.name}</h4>
                               <div className="flex flex-wrap gap-2">
                                   {region.spots.filter(s => formData.spots.includes(s)).map(spot => (
-                                      <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-[11px] font-bold border border-gmg-green/10 flex items-center gap-1">
-                                          <Hash size={10} className="opacity-50" /> {spot}
-                                      </span>
+                                      <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-[11px] font-bold border border-gmg-green/10 flex items-center gap-1"><Hash size={10} className="opacity-50" /> {spot}</span>
                                   ))}
                               </div>
                               <div className="absolute top-5 right-5 text-[9px] bg-gray-50 text-gray-400 px-2 py-0.5 rounded-lg font-bold">UB에서 {region.travelTime}</div>
@@ -278,23 +261,46 @@ const ItineraryBuilder = ({ onBack }) => {
                       ))}
                   </div>
               </section>
-              <p className="text-center text-[10px] text-gray-300 font-medium py-6 mt-4">
-                  Powered by Go몽골 | 몽골 여행의 모든 것
-              </p>
+              <p className="text-center text-[10px] text-gray-300 font-medium py-6 mt-4">Powered by Go몽골 | 몽골 여행의 모든 것</p>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-orange-50 p-6 rounded-[2rem] border border-orange-100/50 flex gap-4 items-start">
+              <div className="bg-white p-2 rounded-xl text-gmg-camel shadow-sm"><Info size={20} /></div>
+              <div className="space-y-1">
+                <p className="text-sm font-black text-gray-800">이미지 저장이 완료되었습니다!</p>
+                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">원하시는 여행사를 선택한 후, 저장된 <span className="text-gmg-camel font-bold">위시리스트 이미지</span>를 전송하면 더욱 정확한 상담이 가능합니다.</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="px-2 text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Shuffle size={12}/> Go몽골 인증 파트너사</p>
+              {partnerAgencies.map(agency => (
+                <button key={agency.id} onClick={() => alert(`${agency.name} 상담으로 연결!`)} className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between transition-all active:scale-[0.98]">
+                  <div className="flex items-center gap-4 text-left">
+                    <div className={`w-12 h-12 ${agency.color} rounded-2xl flex items-center justify-center`}><Building2 size={24} className="text-gray-300 opacity-50" /></div>
+                    <div><h4 className="font-black text-gray-800 mb-0.5">{agency.name}</h4><div className="flex items-center gap-1"><Star size={10} className="text-orange-400 fill-orange-400" /><span className="text-xs font-bold text-gray-600">{agency.rating}</span><span className="text-[10px] text-gray-300 ml-1 font-bold">REVIEWS {agency.reviews}</span></div></div>
+                  </div>
+                  <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-orange-100"><MessageCircle size={14} /> 상담</div>
+                </button>
+              ))}
             </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
         {step < 3 ? (
             <button onClick={nextStep} disabled={btn.disabled} className={`w-full py-5 rounded-2xl font-black text-lg shadow-2xl transition-all ${btn.isActive ? 'bg-gmg-camel text-white shadow-orange-200/50' : 'bg-gray-100 text-gray-300'}`}>{btn.text}</button>
-        ) : (
+        ) : step === 3 ? (
             <div className="flex gap-3">
-                <button onClick={handleExportImage} className="flex-1 bg-gmg-camel text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle size={18} /> 견적 상담하기</button>
+                <button onClick={handleConsulting} className="flex-1 bg-gmg-camel text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle size={18} /> 견적 상담하기</button>
                 <button onClick={() => alert('동행 찾기로 이동!')} className="flex-1 bg-white border-2 border-gmg-green text-gmg-green py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-2"><Search size={18} /> 동행 찾기</button>
             </div>
+        ) : (
+            <button onClick={() => setStep(3)} className="w-full py-5 bg-white border-2 border-gray-100 text-gray-400 rounded-2xl font-black text-lg">위시리스트 다시 확인</button>
         )}
       </footer>
     </div>
