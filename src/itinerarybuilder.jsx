@@ -2,16 +2,16 @@ import React, { useState, useRef } from 'react';
 import { 
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
-  Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle, Copy, CheckCircle, ArrowRight, Target, Smile, Lock, Send
+  Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle, Copy, CheckCircle, ArrowRight, Target, Smile, Lock, Send,
+  PenTool // <--- 이 아이콘이 누락되어 빈 화면이 떴을 가능성이 큽니다. 추가했습니다!
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { supabase } from './supabaseClient';
 
-const ItineraryBuilder = ({ onBack }) => {
+const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const [step, setStep] = useState(1);
   const contentRef = useRef(null);
   
-  // DB 연동 및 Step 5를 위한 상태
   const [isSaving, setIsSaving] = useState(false);
   const [savedSchedule, setSavedSchedule] = useState(null); 
 
@@ -106,7 +106,7 @@ const ItineraryBuilder = ({ onBack }) => {
     setStep(4);
   };
 
-  // [수파베이스 1단계 저장: Schedules]
+  // 일정 저장 로직
   const handleSaveForCommunity = async () => {
     if (!formData.startDate) {
         alert('출발 날짜를 먼저 선택해주세요!');
@@ -128,13 +128,14 @@ const ItineraryBuilder = ({ onBack }) => {
         .single();
 
       if (error) throw error;
+      
       if (data) {
-        setSavedSchedule(data); // 저장된 정보 보관
-        setStep(5); // 🚀 닫기 모달 없이 바로 Step 5(글쓰기)로 이동
+        setSavedSchedule(data); 
+        setStep(5); // 성공 시 상세 작성 폼으로 이동
       }
     } catch (error) {
-      alert('일정 저장 중 오류가 발생했습니다.');
-      console.error(error);
+      console.error('일정 저장 에러:', error);
+      alert('일정 저장 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -154,7 +155,6 @@ const ItineraryBuilder = ({ onBack }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gmg-bg font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative text-gray-800">
       
-      {/* 헤더 (Step 5일 때는 글쓰기 전용 헤더 사용) */}
       {step < 5 && (
         <>
             <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-50">
@@ -320,8 +320,8 @@ const ItineraryBuilder = ({ onBack }) => {
           </div>
         )}
 
-        {/* 🚀 [신규] Step 5: 상세 동행 모집글 작성 */}
-        {step === 5 && (
+        {/* Step 5: 상세 동행 모집글 작성 (PostCreationForm) */}
+        {step === 5 && savedSchedule && (
             <PostCreationForm 
                 scheduleData={savedSchedule} 
                 onBack={() => setStep(3)} 
@@ -334,7 +334,7 @@ const ItineraryBuilder = ({ onBack }) => {
                                 schedule_id: savedSchedule.id,
                                 schedule_uuid: savedSchedule.schedule_uuid,
                                 status: postData.status,
-                                title: `${postData.nickname}님의 동행 모집`,
+                                title: postData.title || `${postData.nickname}님의 동행 모집`,
                                 description: postData.description,
                                 chat_link: postData.chatLink,
                                 password: postData.password,
@@ -344,10 +344,13 @@ const ItineraryBuilder = ({ onBack }) => {
                                 nickname: postData.nickname
                             }]);
                         if (error) throw error;
+                        
                         alert('🎊 동행 모집글이 게시되었습니다!');
-                        onBack(); 
+                        onSaveSuccess(); // 부모의 게시판 화면으로 이동
+                        
                     } catch (e) {
-                        alert('저장 실패');
+                        console.error('글 작성 에러:', e);
+                        alert('저장 실패: ' + e.message);
                     } finally {
                         setIsSaving(false);
                     }
@@ -382,10 +385,11 @@ const ItineraryBuilder = ({ onBack }) => {
 };
 
 /**
- * 🎨 [Step 5] PostCreationForm 컴포넌트
+ * 🎨 PostCreationForm 컴포넌트 (내부 보강)
  */
 const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
     const [postData, setPostData] = useState({
+      title: '',
       status: '동행 미확정',
       currentPeople: 1,
       description: '',
@@ -407,6 +411,11 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
         </header>
   
         <div className="px-6 py-8 space-y-10 pb-40 text-left">
+          <section>
+             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><PenTool size={14}/> 00. Post Title</label>
+             <input type="text" placeholder="매력적인 모집 공고 제목" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" onChange={(e) => setPostData({...postData, title: e.target.value})} />
+          </section>
+
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Target size={14}/> 01. Status</label>
             <div className="grid grid-cols-3 gap-2">
