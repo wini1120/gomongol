@@ -2,14 +2,19 @@ import React, { useState, useRef } from 'react';
 import { 
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
-  Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle
+  Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle, Copy, CheckCircle, ArrowRight, Target, Smile, Lock, Send
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import { supabase } from './supabaseClient';
 
 const ItineraryBuilder = ({ onBack }) => {
   const [step, setStep] = useState(1);
   const contentRef = useRef(null);
   
+  // DB 연동 및 Step 5를 위한 상태
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSchedule, setSavedSchedule] = useState(null); 
+
   const [formData, setFormData] = useState({
     people: 4,
     startDate: '',
@@ -45,7 +50,6 @@ const ItineraryBuilder = ({ onBack }) => {
     }
   ];
 
-  // [B2B] 학습한 여행사 데이터
   const partnerAgencies = [
     { id: 1, name: "이지조이트래블", rating: 4.9, reviews: 128, color: "bg-orange-50" },
     { id: 2, name: "고비트래블", rating: 4.8, reviews: 95, color: "bg-blue-50" },
@@ -92,18 +96,48 @@ const ItineraryBuilder = ({ onBack }) => {
       link.download = `GoMongol_Wishlist.png`;
       link.href = dataUrl;
       link.click();
-      setTimeout(() => {
-          alert('✨ 위시리스트 이미지가 생성되었습니다!\n\n화면의 이미지를 꾹 눌러서 저장하거나, 생성된 파일을 확인해 주세요.');
-      }, 500);
     } catch (err) {
       console.error('이미지 저장 실패:', err);
     }
   };
 
-  // [신규] Step 4로 이동하는 함수 추가
   const handleConsulting = async () => {
     await handleExportImage();
     setStep(4);
+  };
+
+  // [수파베이스 1단계 저장: Schedules]
+  const handleSaveForCommunity = async () => {
+    if (!formData.startDate) {
+        alert('출발 날짜를 먼저 선택해주세요!');
+        setStep(1);
+        return;
+    }
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from('schedules')
+        .insert([{
+          start_date: formData.startDate,
+          nights: formData.nights,
+          people: formData.people,
+          regions: formData.selectedRegions,
+          spots: formData.spots
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        setSavedSchedule(data); // 저장된 정보 보관
+        setStep(5); // 🚀 닫기 모달 없이 바로 Step 5(글쓰기)로 이동
+      }
+    } catch (error) {
+      alert('일정 저장 중 오류가 발생했습니다.');
+      console.error(error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getButtonState = () => {
@@ -120,24 +154,25 @@ const ItineraryBuilder = ({ onBack }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gmg-bg font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative text-gray-800">
       
-      <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-50">
-        <button onClick={prevStep} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-          <ChevronLeft size={24} className="text-gray-600" />
-        </button>
-        <h1 className="flex-1 text-center text-lg font-bold pr-8">
-          {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : step === 3 ? '위시리스트 확인' : '상담 여행사 선택'}
-        </h1>
-      </header>
+      {/* 헤더 (Step 5일 때는 글쓰기 전용 헤더 사용) */}
+      {step < 5 && (
+        <>
+            <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-50">
+                <button onClick={prevStep} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ChevronLeft size={24} className="text-gray-600" />
+                </button>
+                <h1 className="flex-1 text-center text-lg font-bold pr-8">
+                {step === 1 ? '여행 기본 정보' : step === 2 ? '지역 및 스팟 선택' : step === 3 ? '위시리스트 확인' : '상담 여행사 선택'}
+                </h1>
+            </header>
 
-      {/* Progress Bar (4단계 대응) */}
-      <div className="w-full h-1.5 bg-gray-100">
-        <div 
-          className="h-full bg-gmg-camel transition-all duration-500 ease-out" 
-          style={{ width: `${(step / 4) * 100}%` }} 
-        />
-      </div>
+            <div className="w-full h-1.5 bg-gray-100">
+                <div className="h-full bg-gmg-camel transition-all duration-500 ease-out" style={{ width: `${(step / 4) * 100}%` }} />
+            </div>
+        </>
+      )}
 
-      <main className="flex-1 px-6 py-8 overflow-y-auto pb-40">
+      <main className={`flex-1 overflow-y-auto ${step < 5 ? 'px-6 py-8 pb-40' : ''}`}>
         {step === 1 && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
             <section>
@@ -159,11 +194,12 @@ const ItineraryBuilder = ({ onBack }) => {
                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-3 uppercase tracking-widest">
                   <Calendar size={14} /> 출발일
                 </label>
-                <div className="relative">
+                <div className="relative text-left">
                     <input 
                       type="date" 
-                      className="w-full bg-white p-4 pr-12 rounded-2xl border border-gray-100 shadow-sm text-base font-bold focus:outline-none focus:ring-2 focus:ring-gmg-camel/20 appearance-none block min-h-[60px]" 
+                      className="w-full bg-white p-4 pr-12 rounded-2xl border border-gray-100 shadow-sm text-base font-bold focus:outline-none appearance-none block min-h-[60px]" 
                       onChange={(e) => setFormData({...formData, startDate: e.target.value})} 
+                      value={formData.startDate}
                     />
                     <Calendar size={20} className="absolute right-5 top-1/2 -translate-y-1/2 text-gmg-camel pointer-events-none opacity-50" />
                 </div>
@@ -187,9 +223,6 @@ const ItineraryBuilder = ({ onBack }) => {
                 </div>
               </div>
             </section>
-            <p className="text-[11px] text-gray-400 font-medium px-2 leading-relaxed italic">
-                * 몽골 투어는 인원이 많을수록 저렴해져요!
-            </p>
           </div>
         )}
 
@@ -211,7 +244,7 @@ const ItineraryBuilder = ({ onBack }) => {
               </div>
             </section>
             {formData.selectedRegions.length > 0 && (
-              <div className="space-y-8 mt-10">
+              <div className="space-y-8 mt-10 text-left">
                 {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
                   <section key={region.id}>
                     <label className="text-xs font-black text-gmg-green mb-3 block">📍 {region.name} 필수 장소</label>
@@ -229,7 +262,7 @@ const ItineraryBuilder = ({ onBack }) => {
 
         {step === 3 && (
           <div className="pr-1 overflow-visible">
-            <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-visible">
+            <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-visible text-left">
               <div className="flex items-center gap-2 mb-6 opacity-80">
                   <Compass size={20} className="text-gmg-camel" />
                   <span className="text-xl font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
@@ -256,55 +289,190 @@ const ItineraryBuilder = ({ onBack }) => {
                                       <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-[11px] font-bold border border-gmg-green/10 flex items-center gap-1"><Hash size={10} className="opacity-50" /> {spot}</span>
                                   ))}
                               </div>
-                              <div className="absolute top-5 right-5 text-[9px] bg-gray-50 text-gray-400 px-2 py-0.5 rounded-lg font-bold">UB에서 {region.travelTime}</div>
                           </div>
                       ))}
                   </div>
               </section>
-              <p className="text-center text-[10px] text-gray-300 font-medium py-6 mt-4">Powered by Go몽골 | 몽골 여행의 모든 것</p>
             </div>
           </div>
         )}
 
         {step === 4 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-orange-50 p-6 rounded-[2rem] border border-orange-100/50 flex gap-4 items-start">
+            <div className="bg-orange-50 p-6 rounded-[2rem] border border-orange-100/50 flex gap-4 items-start text-left">
               <div className="bg-white p-2 rounded-xl text-gmg-camel shadow-sm"><Info size={20} /></div>
               <div className="space-y-1">
                 <p className="text-sm font-black text-gray-800">이미지 저장이 완료되었습니다!</p>
-                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">원하시는 여행사를 선택한 후, 저장된 <span className="text-gmg-camel font-bold">위시리스트 이미지</span>를 전송하면 더욱 정확한 상담이 가능합니다.</p>
+                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">원하시는 여행사를 선택한 후 위시리스트 이미지를 전송해 주세요.</p>
               </div>
             </div>
             <div className="space-y-3">
-              <p className="px-2 text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><Shuffle size={12}/> Go몽골 인증 파트너사</p>
               {partnerAgencies.map(agency => (
-                <button key={agency.id} onClick={() => alert(`${agency.name} 상담으로 연결!`)} className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between transition-all active:scale-[0.98]">
+                <button key={agency.id} onClick={() => alert(`${agency.name} 연결`)} className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between">
                   <div className="flex items-center gap-4 text-left">
                     <div className={`w-12 h-12 ${agency.color} rounded-2xl flex items-center justify-center`}><Building2 size={24} className="text-gray-300 opacity-50" /></div>
-                    <div><h4 className="font-black text-gray-800 mb-0.5">{agency.name}</h4><div className="flex items-center gap-1"><Star size={10} className="text-orange-400 fill-orange-400" /><span className="text-xs font-bold text-gray-600">{agency.rating}</span><span className="text-[10px] text-gray-300 ml-1 font-bold">REVIEWS {agency.reviews}</span></div></div>
+                    <div className="text-left"><h4 className="font-black text-gray-800">{agency.name}</h4><div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold"><Star size={10} className="text-orange-400 fill-orange-400" />{agency.rating}</div></div>
                   </div>
-                  <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-orange-100"><MessageCircle size={14} /> 상담</div>
+                  <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"><MessageCircle size={14} /> 상담</div>
                 </button>
               ))}
             </div>
           </div>
         )}
+
+        {/* 🚀 [신규] Step 5: 상세 동행 모집글 작성 */}
+        {step === 5 && (
+            <PostCreationForm 
+                scheduleData={savedSchedule} 
+                onBack={() => setStep(3)} 
+                onComplete={async (postData) => {
+                    setIsSaving(true);
+                    try {
+                        const { error } = await supabase
+                            .from('posts')
+                            .insert([{
+                                schedule_id: savedSchedule.id,
+                                schedule_uuid: savedSchedule.schedule_uuid,
+                                status: postData.status,
+                                title: `${postData.nickname}님의 동행 모집`,
+                                description: postData.description,
+                                chat_link: postData.chatLink,
+                                password: postData.password,
+                                current_people: postData.currentPeople,
+                                target_ages: postData.targetAges,
+                                target_gender: postData.targetGender,
+                                nickname: postData.nickname
+                            }]);
+                        if (error) throw error;
+                        alert('🎊 동행 모집글이 게시되었습니다!');
+                        onBack(); 
+                    } catch (e) {
+                        alert('저장 실패');
+                    } finally {
+                        setIsSaving(false);
+                    }
+                }}
+            />
+        )}
       </main>
 
-      <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
-        {step < 3 ? (
-            <button onClick={nextStep} disabled={btn.disabled} className={`w-full py-5 rounded-2xl font-black text-lg shadow-2xl transition-all ${btn.isActive ? 'bg-gmg-camel text-white shadow-orange-200/50' : 'bg-gray-100 text-gray-300'}`}>{btn.text}</button>
-        ) : step === 3 ? (
-            <div className="flex gap-3">
-                <button onClick={handleConsulting} className="flex-1 bg-gmg-camel text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle size={18} /> 견적 상담하기</button>
-                <button onClick={() => alert('동행 찾기로 이동!')} className="flex-1 bg-white border-2 border-gmg-green text-gmg-green py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-2"><Search size={18} /> 동행 찾기</button>
-            </div>
-        ) : (
-            <button onClick={() => setStep(3)} className="w-full py-5 bg-white border-2 border-gray-100 text-gray-400 rounded-2xl font-black text-lg">위시리스트 다시 확인</button>
-        )}
-      </footer>
+      {/* 하단 푸터 */}
+      {step < 5 && (
+        <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
+            {step < 3 ? (
+                <button onClick={nextStep} disabled={btn.disabled} className={`w-full py-5 rounded-2xl font-black text-lg shadow-2xl transition-all ${btn.isActive ? 'bg-gmg-camel text-white shadow-orange-200/50' : 'bg-gray-100 text-gray-300'}`}>{btn.text}</button>
+            ) : step === 3 ? (
+                <div className="flex gap-3">
+                    <button onClick={handleConsulting} className="flex-1 bg-gmg-camel text-white py-5 rounded-2xl font-black text-sm shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"><MessageCircle size={18} /> 견적 상담하기</button>
+                    <button 
+                    onClick={handleSaveForCommunity} 
+                    disabled={isSaving}
+                    className="flex-1 bg-white border-2 border-gmg-green text-gmg-green py-5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                    >
+                    {isSaving ? "저장 중..." : <><Search size={18} /> 동행 찾기</>}
+                    </button>
+                </div>
+            ) : (
+                <button onClick={() => setStep(3)} className="w-full py-5 bg-white border-2 border-gray-100 text-gray-400 rounded-2xl font-black text-lg">위시리스트 다시 확인</button>
+            )}
+        </footer>
+      )}
     </div>
   );
 };
+
+/**
+ * 🎨 [Step 5] PostCreationForm 컴포넌트
+ */
+const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
+    const [postData, setPostData] = useState({
+      status: '동행 미확정',
+      currentPeople: 1,
+      description: '',
+      targetAges: [],
+      targetGender: '무관',
+      nickname: '',
+      chatLink: '',
+      password: ''
+    });
+  
+    const ageOptions = ['20대', '30대', '40대', '50대', '60대+'];
+    const statusOptions = ['동행 미확정', '항공권 발권완료', '출발 확정'];
+  
+    return (
+      <div className="animate-in slide-in-from-right-10 duration-500 bg-white min-h-screen">
+        <header className="flex items-center px-4 py-5 bg-white border-b border-gray-100 sticky top-0 z-[60]">
+          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full"><ChevronLeft size={24} /></button>
+          <h1 className="flex-1 text-center text-lg font-black pr-8">모집 상세 정보</h1>
+        </header>
+  
+        <div className="px-6 py-8 space-y-10 pb-40 text-left">
+          <section>
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Target size={14}/> 01. Status</label>
+            <div className="grid grid-cols-3 gap-2">
+              {statusOptions.map(opt => (
+                <button key={opt} onClick={() => setPostData({...postData, status: opt})} className={`py-3 rounded-xl text-[10px] font-bold border-2 ${postData.status === opt ? 'border-gmg-camel bg-orange-50 text-gmg-camel' : 'border-gray-50 bg-white text-gray-400'}`}>{opt}</button>
+              ))}
+            </div>
+          </section>
+  
+          <section>
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Users size={14}/> 02. Current Members</label>
+            <div className="bg-gray-50 p-6 rounded-[2rem] flex items-center justify-between border border-gray-100">
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-gray-800">현재 확정 인원</span>
+                <span className="text-[10px] text-gray-400 font-bold">총 {scheduleData?.people}명 중</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={() => setPostData(p => ({...p, currentPeople: Math.max(1, p.currentPeople - 1)}))} className="w-10 h-10 rounded-xl bg-white border font-black">-</button>
+                <span className="font-black text-xl text-gmg-camel w-6 text-center">{postData.currentPeople}</span>
+                <button onClick={() => setPostData(p => ({...p, currentPeople: Math.min(scheduleData?.people || 1, p.currentPeople + 1)}))} className="w-10 h-10 rounded-xl bg-white border font-black">+</button>
+              </div>
+            </div>
+          </section>
+  
+          <section>
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Smile size={14}/> 03. About Our Group</label>
+            <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-sm font-medium outline-none resize-none" onChange={(e) => setPostData({...postData, description: e.target.value})} />
+            <div className="text-right text-[10px] text-gray-300 font-bold mt-2">{postData.description.length} / 300</div>
+          </section>
+  
+          <section className="space-y-6">
+            <div>
+              <label className="text-[10px] font-black text-gray-400 mb-3 block uppercase tracking-widest italic">04. Age</label>
+              <div className="flex flex-wrap gap-2">
+                {ageOptions.map(age => (
+                  <button key={age} onClick={() => setPostData(prev => ({...prev, targetAges: prev.targetAges.includes(age) ? prev.targetAges.filter(a => a !== age) : [...prev.targetAges, age]}))} className={`px-4 py-2 rounded-xl text-[10px] font-black ${postData.targetAges.includes(age) ? 'bg-gmg-green text-white' : 'bg-gray-100 text-gray-400'}`}>{age}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-black text-gray-400 mb-3 block uppercase tracking-widest italic">05. Gender</label>
+              <div className="flex gap-2">
+                {['남성만', '여성만', '무관'].map(g => (
+                  <button key={g} onClick={() => setPostData({...postData, targetGender: g})} className={`flex-1 py-3 rounded-xl text-[10px] font-black border-2 ${postData.targetGender === g ? 'border-gmg-green bg-green-50 text-gmg-green' : 'border-gray-50 bg-white text-gray-400'}`}>{g}</button>
+                ))}
+              </div>
+            </div>
+          </section>
+  
+          <section className="space-y-4 pt-4 border-t border-dashed border-gray-100">
+            <input type="text" placeholder="작성자 별명" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, nickname: e.target.value})} />
+            <input type="text" placeholder="오픈채팅방 링크 (https://...)" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, chatLink: e.target.value})} />
+            <div className="relative">
+                <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, password: e.target.value})} />
+                <Lock size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" />
+            </div>
+          </section>
+        </div>
+  
+        <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-[70]">
+          <button onClick={() => onComplete(postData)} className="w-full bg-gmg-camel text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-orange-100 flex items-center justify-center gap-2">
+            <Send size={20} /> 모집 게시글 올리기
+          </button>
+        </footer>
+      </div>
+    );
+  };
 
 export default ItineraryBuilder;
