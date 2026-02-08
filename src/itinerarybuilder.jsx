@@ -3,7 +3,7 @@ import {
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
   Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle, Copy, CheckCircle, ArrowRight, Target, Smile, Lock, Send,
-  PenTool // <--- 이 아이콘이 누락되어 빈 화면이 떴을 가능성이 큽니다. 추가했습니다!
+  PenTool, ExternalLink // ExternalLink 아이콘 추가
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { supabase } from './supabaseClient';
@@ -189,7 +189,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
               </div>
             </section>
 
-            <section className="space-y-5">
+            <section className="space-y-5 text-left">
               <div className="w-full">
                 <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-3 uppercase tracking-widest">
                   <Calendar size={14} /> 출발일
@@ -227,7 +227,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         )}
 
         {step === 2 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 text-left">
             <section>
               <label className="flex items-center gap-2 text-xs font-black text-gray-400 mb-4 uppercase tracking-widest">
                 <MapPin size={14} /> 지역 선택 (중복 가능)
@@ -268,7 +268,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                   <span className="text-xl font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
               </div>
               <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">여행자님의<br/><span className="text-gmg-camel font-black">몽골 여행 위시리스트</span></h3>
-              <section className="mb-8">
+              <section className="mb-8 text-left">
                   <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">기본 정보</h4>
                   <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 flex justify-around items-center">
                       <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
@@ -278,7 +278,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                       <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black">{formData.nights}박 {formData.nights+1}일</span></div>
                   </div>
               </section>
-              <section>
+              <section className="text-left">
                   <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">투어 정보</h4>
                   <div className="space-y-4">
                       {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
@@ -334,7 +334,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                                 schedule_id: savedSchedule.id,
                                 schedule_uuid: savedSchedule.schedule_uuid,
                                 status: postData.status,
-                                title: postData.title || `${postData.nickname}님의 동행 모집`,
+                                title: postData.title,
                                 description: postData.description,
                                 chat_link: postData.chatLink,
                                 password: postData.password,
@@ -346,7 +346,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                         if (error) throw error;
                         
                         alert('🎊 동행 모집글이 게시되었습니다!');
-                        onSaveSuccess(); // 부모의 게시판 화면으로 이동
+                        onSaveSuccess(); 
                         
                     } catch (e) {
                         console.error('글 작성 에러:', e);
@@ -359,7 +359,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         )}
       </main>
 
-      {/* 하단 푸터 */}
+      {/* 하단 푸터 (Step 1~4용) */}
       {step < 5 && (
         <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
             {step < 3 ? (
@@ -385,7 +385,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
 };
 
 /**
- * 🎨 PostCreationForm 컴포넌트 (내부 보강)
+ * 🎨 PostCreationForm 컴포넌트 (디테일 수정 반영)
  */
 const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
     const [postData, setPostData] = useState({
@@ -402,6 +402,14 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
   
     const ageOptions = ['20대', '30대', '40대', '50대', '60대+'];
     const statusOptions = ['동행 미확정', '항공권 발권완료', '출발 확정'];
+
+    // 필수 항목 체크 로직 (오픈채팅방 링크 제외)
+    const isFormValid = 
+      postData.title.trim() !== '' && 
+      postData.description.trim() !== '' && 
+      postData.targetAges.length > 0 && 
+      postData.nickname.trim() !== '' && 
+      postData.password.length === 4;
   
     return (
       <div className="animate-in slide-in-from-right-10 duration-500 bg-white min-h-screen">
@@ -411,11 +419,13 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
         </header>
   
         <div className="px-6 py-8 space-y-10 pb-40 text-left">
+          {/* 00. 제목 (필수) */}
           <section>
-             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><PenTool size={14}/> 00. Post Title</label>
-             <input type="text" placeholder="매력적인 모집 공고 제목" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" onChange={(e) => setPostData({...postData, title: e.target.value})} />
+             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><PenTool size={14}/> 00. Post Title *</label>
+             <input type="text" placeholder="매력적인 모집 공고 제목" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={postData.title} onChange={(e) => setPostData({...postData, title: e.target.value})} />
           </section>
 
+          {/* 01. 상태 */}
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Target size={14}/> 01. Status</label>
             <div className="grid grid-cols-3 gap-2">
@@ -425,6 +435,7 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
+          {/* 02. 인원 */}
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Users size={14}/> 02. Current Members</label>
             <div className="bg-gray-50 p-6 rounded-[2rem] flex items-center justify-between border border-gray-100">
@@ -440,15 +451,17 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
+          {/* 03. 설명 (필수) */}
           <section>
-            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Smile size={14}/> 03. About Our Group</label>
-            <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-sm font-medium outline-none resize-none" onChange={(e) => setPostData({...postData, description: e.target.value})} />
+            <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Smile size={14}/> 03. About Our Group *</label>
+            <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-sm font-medium outline-none resize-none focus:ring-2 focus:ring-gmg-green" value={postData.description} onChange={(e) => setPostData({...postData, description: e.target.value})} />
             <div className="text-right text-[10px] text-gray-300 font-bold mt-2">{postData.description.length} / 300</div>
           </section>
   
-          <section className="space-y-6">
+          {/* 04. 나이 (필수) 및 05. 성별 */}
+          <section className="space-y-6 text-left">
             <div>
-              <label className="text-[10px] font-black text-gray-400 mb-3 block uppercase tracking-widest italic">04. Age</label>
+              <label className="text-[10px] font-black text-gray-400 mb-3 block uppercase tracking-widest italic">04. Age *</label>
               <div className="flex flex-wrap gap-2">
                 {ageOptions.map(age => (
                   <button key={age} onClick={() => setPostData(prev => ({...prev, targetAges: prev.targetAges.includes(age) ? prev.targetAges.filter(a => a !== age) : [...prev.targetAges, age]}))} className={`px-4 py-2 rounded-xl text-[10px] font-black ${postData.targetAges.includes(age) ? 'bg-gmg-green text-white' : 'bg-gray-100 text-gray-400'}`}>{age}</button>
@@ -465,18 +478,46 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
-          <section className="space-y-4 pt-4 border-t border-dashed border-gray-100">
-            <input type="text" placeholder="작성자 별명" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, nickname: e.target.value})} />
-            <input type="text" placeholder="오픈채팅방 링크 (https://...)" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, chatLink: e.target.value})} />
-            <div className="relative">
-                <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" onChange={(e) => setPostData({...postData, password: e.target.value})} />
-                <Lock size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" />
+          {/* 06. 별명 (필수) 및 07. 오픈채팅 링크 (선택) */}
+          <section className="space-y-4 pt-4 border-t border-dashed border-gray-100 text-left">
+            <div>
+              <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">06. Nickname *</label>
+              <input type="text" placeholder="작성자 별명" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.nickname} onChange={(e) => setPostData({...postData, nickname: e.target.value})} />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">07. KakaoTalk Link</label>
+              <div className="flex gap-2">
+                <input type="text" placeholder="오픈채팅방 링크 (https://...)" className="flex-1 bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.chatLink} onChange={(e) => setPostData({...postData, chatLink: e.target.value})} />
+                <button 
+                  onClick={() => window.open('https://open.kakao.com/o/g', '_blank')} 
+                  className="bg-yellow-400 text-yellow-900 px-4 rounded-xl font-black text-[10px] flex items-center gap-1 shadow-sm hover:bg-yellow-300 transition-all"
+                >
+                  개설 <ExternalLink size={12} />
+                </button>
+              </div>
+            </div>
+
+            {/* 08. 비밀번호 (필수) */}
+            <div>
+                <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">08. Password *</label>
+                <div className="relative">
+                    <input type="password" placeholder="비밀번호 4자리" maxLength={4} className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.password} onChange={(e) => setPostData({...postData, password: e.target.value})} />
+                    <Lock size={16} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300" />
+                </div>
+                <p className="text-[10px] text-gray-400 font-bold mt-2 ml-1">이후 게시글 수정에 필요한 정보입니다</p>
             </div>
           </section>
         </div>
   
         <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-[70]">
-          <button onClick={() => onComplete(postData)} className="w-full bg-gmg-camel text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-orange-100 flex items-center justify-center gap-2">
+          <button 
+            onClick={() => onComplete(postData)} 
+            disabled={!isFormValid}
+            className={`w-full py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-xl
+              ${isFormValid ? 'bg-gmg-camel text-white shadow-orange-100 active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+            `}
+          >
             <Send size={20} /> 모집 게시글 올리기
           </button>
         </footer>
