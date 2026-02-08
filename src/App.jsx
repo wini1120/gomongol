@@ -8,17 +8,22 @@ import PostDetail from './PostDetail';
 function App() {
   const [view, setView] = useState('main'); 
   const [selectedPost, setSelectedPost] = useState(null);
+  
+  // 데이터 업데이트 시 목록 새로고침을 위한 '키' 상태
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // 게시판에서 글 클릭 시 호출
   const handlePostClick = (post) => {
     setSelectedPost(post);
     setView('postDetail');
   };
 
-  // 상세 페이지에서 비밀번호 확인 후 수정 진입 시 호출
-  const handleEdit = (post) => {
-    // selectedPost에 데이터가 있는 상태로 builder로 이동
-    setView('builder');
+  // 수정 완료 시 호출되는 함수
+  const handleUpdateSuccess = () => {
+    // 1. 게시판 데이터를 다시 불러오도록 키를 변경
+    setRefreshKey(prev => prev + 1);
+    // 2. 상세페이지에서는 수정사항을 보여주기 위해 상태 유지 or 목록으로 이동
+    setView('community'); 
+    setSelectedPost(null);
   };
 
   const navigateToMain = () => {
@@ -28,7 +33,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gmg-bg font-sans">
-      {/* 1. 메인 페이지 */}
       {view === 'main' && (
         <MainPage 
           onStartBuilder={() => { setSelectedPost(null); setView('builder'); }} 
@@ -37,16 +41,13 @@ function App() {
         />
       )}
 
-      {/* 2. 일정 만들기 (신규 작성 및 수정 겸용) */}
       {view === 'builder' && (
         <ItineraryBuilder 
           onBack={navigateToMain} 
-          onSaveSuccess={() => setView('community')} 
-          editData={selectedPost} // 수정할 데이터를 props로 전달
+          onSaveSuccess={() => { setRefreshKey(prev => prev + 1); setView('community'); }} 
         />
       )}
 
-      {/* 3. 몽골 둘러보기 */}
       {view === 'explorer' && (
         <Explorer 
           onBack={navigateToMain} 
@@ -54,21 +55,20 @@ function App() {
         />
       )}
 
-      {/* 4. 동행 찾기 게시판 */}
       {view === 'community' && (
         <CommunityBoard 
+          key={refreshKey} // 이 키가 바뀌면 게시판이 다시 로드됩니다
           onBack={navigateToMain} 
           onStartBuilder={() => { setSelectedPost(null); setView('builder'); }} 
           onPostClick={handlePostClick} 
         />
       )}
 
-      {/* 5. 게시글 상세 페이지 */}
       {view === 'postDetail' && (
         <PostDetail 
           post={selectedPost} 
           onBack={() => setView('community')} 
-          onEdit={handleEdit} // 수정 핸들러 전달
+          onUpdateSuccess={handleUpdateSuccess} // 수정 성공 핸들러
         />
       )}
     </div>
