@@ -8,32 +8,47 @@ import { supabase } from './supabaseClient';
 const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 1. [추가] DB에서 가져온 지역 마스터 정보를 저장할 상태
+  const [regionNames, setRegionNames] = useState({});
 
-  // 1. 수파베이스 데이터 가져오기
   useEffect(() => {
-    const fetchPosts = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('posts')
-          .select(`
-            *,
-            schedules!posts_schedule_id_fkey (*) 
-          `) 
-          .order('created_at', { ascending: false });
+        // [로직 변경] 지역 마스터 테이블과 게시글 데이터를 동시에 가져옵니다.
+        const [regionsRes, postsRes] = await Promise.all([
+          supabase.from('master_regions').select('id, region_name'),
+          supabase
+            .from('posts')
+            .select(`
+              *,
+              schedules!posts_schedule_id_fkey (*) 
+            `) 
+            .order('created_at', { ascending: false })
+        ]);
 
-        if (error) throw error;
-        setPosts(data || []);
+        if (regionsRes.error) throw regionsRes.error;
+        if (postsRes.error) throw postsRes.error;
+
+        // [추가] 지역 정보를 {1: '고비...', 2: '중부...'} 형태의 객체로 변환
+        const nameMap = regionsRes.data.reduce((acc, curr) => {
+          acc[curr.id] = curr.region_name;
+          return acc;
+        }, {});
+        
+        setRegionNames(nameMap);
+        setPosts(postsRes.data || []);
       } catch (e) {
-        console.error('로드 실패:', e);
+        console.error('데이터 로드 실패:', e);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchPosts();
+    
+    fetchData();
   }, []);
 
-  // 2. 시간 변환 함수
   const getTimeAgo = (date) => {
     const start = new Date(date);
     const end = new Date();
@@ -43,7 +58,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     return `${Math.floor(diff / 1440)}일 전`;
   };
 
-  // 3. 상태별 색상
   const getStatusColor = (status) => {
     switch(status) {
       case '출발 확정': return 'bg-gmg-green text-white';
@@ -55,8 +69,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans max-w-[1920px] mx-auto text-gray-800">
-      
-      {/* --- [PC 전용] 좌측 사이드바 --- */}
+      {/* --- 사이드바 생략 (디자인 동일) --- */}
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-100 sticky top-0 h-screen p-8 justify-between z-50">
         <div className="space-y-10">
           <div className="flex items-center gap-2 text-gmg-camel cursor-pointer" onClick={onBack}>
@@ -75,14 +88,9 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             </div>
           </nav>
         </div>
-        <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-loose">
-          Made by Go몽골<br/>Contact Us | Terms
-        </div>
       </aside>
 
-      {/* --- 메인 콘텐츠 피드 --- */}
       <main className="flex-1 flex flex-col min-w-0">
-        
         <header className="flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100 sticky top-0 z-40 lg:px-10 lg:py-8 lg:bg-transparent lg:border-none">
           <div className="flex items-center gap-3">
             <button onClick={onBack} className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -90,10 +98,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             </button>
             <h1 className="text-xl lg:text-3xl font-black text-gray-800">동행 찾기 🐪</h1>
           </div>
-          <button 
-            onClick={onStartBuilder}
-            className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all"
-          >
+          <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
             <Plus size={18} /> 동행 글올리기
           </button>
         </header>
@@ -104,93 +109,45 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
               {posts.map(post => {
-                // [로직 추가] 나이가 5개 모두 선택되었는지 확인
                 const isAllAges = post.target_ages?.length >= 5 || post.target_ages?.includes('나이 무관');
 
                 return (
-                  <div 
-                    key={post.id} 
-                    onClick={() => onPostClick(post)}
-                    className="group flex flex-col cursor-pointer bg-white rounded-[2.5rem] shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden"
-                  >
+                  <div key={post.id} onClick={() => onPostClick(post)} className="group flex flex-col cursor-pointer bg-white rounded-[2.5rem] shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden">
                     <div className="p-6 lg:p-8 flex-1 flex flex-col">
-                      
-                      {/* 1. 상단: 상태 및 메타 정보 */}
                       <div className="flex justify-between items-start mb-6">
                         <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tight shadow-sm ${getStatusColor(post.status)}`}>
                           {post.status}
                         </span>
                         <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-gray-300 text-[10px] font-bold flex items-center gap-1">
-                            <Clock size={12} /> {getTimeAgo(post.created_at)}
-                          </span>
+                          <span className="text-gray-300 text-[10px] font-bold flex items-center gap-1"><Clock size={12} /> {getTimeAgo(post.created_at)}</span>
                           <span className="text-gray-400 text-[10px] font-black italic">by {post.nickname}</span>
                         </div>
                       </div>
 
-                      {/* 2. 중앙: 제목 */}
-                      <h3 className="font-black text-gray-800 text-lg lg:text-xl leading-snug mb-3 line-clamp-2 group-hover:text-gmg-camel transition-colors">
-                        {post.title}
-                      </h3>
+                      <h3 className="font-black text-gray-800 text-lg lg:text-xl leading-snug mb-3 line-clamp-2 group-hover:text-gmg-camel transition-colors">{post.title}</h3>
 
-                      {/* [위치 수정] 날짜 & 인원 정보를 제목 바로 아래로 이동 */}
                       <div className="flex gap-4 mb-5 text-[11px] font-black text-gray-400">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-gmg-camel" />
-                          <span>{post.schedules?.start_date?.replace(/-/g, '.')}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Users size={13} className="text-gmg-camel" />
-                          <span>
-                            <b className="text-gray-800">{post.current_people}</b>/{post.schedules?.people}명
-                          </span>
-                        </div>
+                        <div className="flex items-center gap-1.5"><Calendar size={13} className="text-gmg-camel" /><span>{post.schedules?.start_date?.replace(/-/g, '.')}</span></div>
+                        <div className="flex items-center gap-1.5"><Users size={13} className="text-gmg-camel" /><span><b className="text-gray-800">{post.current_people}</b>/{post.schedules?.people}명</span></div>
                       </div>
                       
-                      {/* 3. 모집 타겟 태그 */}
                       <div className="flex flex-wrap gap-1.5 mb-6">
-                        <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-[9px] font-black border border-gray-200/50">
-                          {post.target_gender === '무관' ? '성별무관' : post.target_gender}
-                        </span>
-                        
-                        {/* [나이 무관 로직 적용] */}
-                        {isAllAges ? (
-                          <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">
-                            나이 무관
-                          </span>
-                        ) : (
-                          post.target_ages?.map(age => (
-                            <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">
-                              {age}
-                            </span>
-                          ))
-                        )}
+                        <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-[9px] font-black border border-gray-200/50">{post.target_gender === '무관' ? '성별무관' : post.target_gender}</span>
+                        {isAllAges ? <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">나이 무관</span> : post.target_ages?.map(age => <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">{age}</span>)}
                       </div>
 
-                      {/* 4. 하단 영역: 해시태그 & 버튼 */}
                       <div className="mt-auto space-y-4 pt-4 border-t border-gray-50">
                         <div className="flex flex-wrap gap-2">
-                          {post.schedules?.regions?.map(region => (
-                            <span key={region} className="text-[10px] font-black text-gmg-green opacity-60">
-                              # {region}
+                          {/* [핵심 변경] 하드코딩된 상수 대신 regionNames 객체에서 실시간 조회 */}
+                          {post.schedules?.regions?.map(regionId => (
+                            <span key={regionId} className="text-[10px] font-black text-gmg-green opacity-60">
+                              # {regionNames[regionId] || '로딩 중...'}
                             </span>
                           ))}
                         </div>
 
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation(); 
-                            if (post.chat_link) window.open(post.chat_link, '_blank');
-                          }}
-                          disabled={!post.chat_link}
-                          className={`w-full py-4 rounded-2xl font-black text-xs lg:text-sm flex items-center justify-center gap-2 transition-all ${
-                            post.chat_link 
-                            ? 'bg-gmg-camel text-white shadow-lg shadow-orange-100 active:scale-95 hover:bg-opacity-90' 
-                            : 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                          }`}
-                        >
-                          <MessageCircle size={16} /> 
-                          {post.chat_link ? '참여하기' : '채팅방 개설 전'}
+                        <button onClick={(e) => { e.stopPropagation(); if (post.chat_link) window.open(post.chat_link, '_blank'); }} disabled={!post.chat_link} className={`w-full py-4 rounded-2xl font-black text-xs lg:text-sm flex items-center justify-center gap-2 transition-all ${post.chat_link ? 'bg-gmg-camel text-white shadow-lg shadow-orange-100 active:scale-95' : 'bg-gray-200 text-gray-300'}`}>
+                          <MessageCircle size={16} /> {post.chat_link ? '오픈채팅 참여하기' : '채팅방 개설 전'}
                         </button>
                       </div>
                     </div>
@@ -202,12 +159,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         </div>
       </main>
 
-      <button 
-        onClick={onStartBuilder}
-        className="fixed bottom-8 right-8 lg:hidden w-14 h-14 bg-gmg-green text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-50 hover:scale-110"
-      >
-        <Plus size={28} />
-      </button>
+      <button onClick={onStartBuilder} className="fixed bottom-8 right-8 lg:hidden w-14 h-14 bg-gmg-green text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-50 hover:scale-110"><Plus size={28} /></button>
     </div>
   );
 };

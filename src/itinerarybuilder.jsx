@@ -3,7 +3,7 @@ import {
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
   Search, Hash, ChevronDown, Compass, Building2, Star, Info, Shuffle, Copy, CheckCircle, ArrowRight, Target, Smile, Lock, Send,
-  PenTool, ExternalLink // ExternalLink 아이콘 추가
+  PenTool, ExternalLink 
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { supabase } from './supabaseClient';
@@ -19,21 +19,22 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
     people: 4,
     startDate: '',
     nights: 5,
-    selectedRegions: [], 
-    spots: []
+    selectedRegions: [], // 이제 숫자 ID 배열 [1, 2]
+    spots: {} // 이제 숫자 ID를 키로 하는 객체 {"1": [], "2": []}
   });
 
+  // [수정] DB의 master_regions 테이블 ID와 일치하도록 변경
   const regionData = [
     { 
-      id: 'gobi', 
-      name: '남고비 사막 코스', 
+      id: 1, // gobi -> 1
+      name: '고비 사막 코스', 
       travelTime: '8~10시간',
       desc: '지평선과 은하수, 낙타 트레킹', 
       icon: '🐪',
       spots: ['바가 가쯔링 촐로', '차강 소브라가', '욜린암', '홍고링 엘스', '바얀작', '엉긴 사원', '만달고비']
     },
     { 
-      id: 'central', 
+      id: 2, // central -> 2
       name: '중부 힐링 코스', 
       travelTime: '3~5시간',
       desc: '초원, 야생마, 온천과 폭포', 
@@ -41,7 +42,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
       spots: ['테를지 국립공원', '미니고비 (엘승타사르하이)', '쳉헤르 온천', '오기 호수', '카라코롬 (에르덴조 사원)', '어르헝 폭포']
     },
     { 
-      id: 'khuvsgul', 
+      id: 3, // khuvsgul -> 3
       name: '홉스굴 북부 코스', 
       travelTime: '12~14시간',
       desc: '푸른 진주 호수와 순록 부족', 
@@ -59,6 +60,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => (step === 1 ? onBack() : setStep(prev => prev - 1));
 
+  // [수정] 지역 토글 시 숫자 ID 사용
   const toggleRegion = (regionId) => {
     setFormData(prev => {
       const isSelected = prev.selectedRegions.includes(regionId);
@@ -66,22 +68,33 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         ? prev.selectedRegions.filter(id => id !== regionId) 
         : [...prev.selectedRegions, regionId];
       
-      const removedRegion = regionData.find(r => r.id === regionId);
-      const newSpots = isSelected 
-        ? prev.spots.filter(s => !removedRegion.spots.includes(s))
-        : prev.spots;
+      const newSpots = { ...prev.spots };
+      if (isSelected) {
+        delete newSpots[String(regionId)]; 
+      } else {
+        newSpots[String(regionId)] = []; 
+      }
 
       return { ...prev, selectedRegions: newRegions, spots: newSpots };
     });
   };
 
-  const toggleSpot = (spot) => {
-    setFormData(prev => ({
-      ...prev,
-      spots: prev.spots.includes(spot) 
-        ? prev.spots.filter(s => s !== spot) 
-        : [...prev.spots, spot]
-    }));
+  // [수정] 스팟 토글 시 숫자 ID를 키로 사용
+  const toggleSpot = (regionId, spot) => {
+    setFormData(prev => {
+      const currentRegionSpots = prev.spots[String(regionId)] || [];
+      const newRegionSpots = currentRegionSpots.includes(spot)
+        ? currentRegionSpots.filter(s => s !== spot)
+        : [...currentRegionSpots, spot];
+
+      return {
+        ...prev,
+        spots: {
+          ...prev.spots,
+          [String(regionId)]: newRegionSpots
+        }
+      };
+    });
   };
 
   const handleExportImage = async () => {
@@ -106,7 +119,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
     setStep(4);
   };
 
-  // 일정 저장 로직
+  // [수정] 저장 시 신규 스키마(ID 기반) 적용
   const handleSaveForCommunity = async () => {
     if (!formData.startDate) {
         alert('출발 날짜를 먼저 선택해주세요!');
@@ -121,8 +134,8 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
           start_date: formData.startDate,
           nights: formData.nights,
           people: formData.people,
-          regions: formData.selectedRegions,
-          spots: formData.spots
+          regions: formData.selectedRegions, // 숫자 배열 [1, 2]
+          spots: formData.spots // {"1": [], "2": []}
         }])
         .select()
         .single();
@@ -131,11 +144,11 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
       
       if (data) {
         setSavedSchedule(data); 
-        setStep(5); // 성공 시 상세 작성 폼으로 이동
+        setStep(5);
       }
     } catch (error) {
       console.error('일정 저장 에러:', error);
-      alert('일정 저장 중 오류가 발생했습니다: ' + error.message);
+      alert('일정 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -144,7 +157,9 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const getButtonState = () => {
     if (step === 1) return { text: '다음 단계로', disabled: !formData.startDate, isActive: !!formData.startDate };
     if (step === 2) {
-      if (formData.selectedRegions.length === 0 || formData.spots.length === 0) return { text: '지역과 장소를 선택해주세요', disabled: true, isActive: false };
+      const hasSpots = Object.values(formData.spots).some(arr => arr.length > 0);
+      if (formData.selectedRegions.length === 0 || !hasSpots) 
+        return { text: '지역과 장소를 선택해주세요', disabled: true, isActive: false };
       return { text: '위시리스트 확인하기', disabled: false, isActive: true };
     }
     return { text: '', disabled: false, isActive: true };
@@ -250,7 +265,12 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                     <label className="text-xs font-black text-gmg-green mb-3 block">📍 {region.name} 필수 장소</label>
                     <div className="flex flex-wrap gap-2">
                       {region.spots.map(spot => (
-                        <button key={spot} onClick={() => toggleSpot(spot)} className={`px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${formData.spots.includes(spot) ? 'bg-gmg-green text-white shadow-md scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}>{spot}</button>
+                        <button key={spot} 
+                          onClick={() => toggleSpot(region.id, spot)}
+                          className={`px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${formData.spots[String(region.id)]?.includes(spot) ? 'bg-gmg-green text-white shadow-md scale-105' : 'bg-white text-gray-500 border border-gray-100'}`}
+                        >
+                          {spot}
+                        </button>
                       ))}
                     </div>
                   </section>
@@ -285,7 +305,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                           <div key={region.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 relative">
                               <h4 className="text-base font-black text-gray-800 flex items-center gap-2 mb-4"><span>{region.icon}</span> {region.name}</h4>
                               <div className="flex flex-wrap gap-2">
-                                  {region.spots.filter(s => formData.spots.includes(s)).map(spot => (
+                                  {region.spots.filter(s => formData.spots[String(region.id)]?.includes(s)).map(spot => (
                                       <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-[11px] font-bold border border-gmg-green/10 flex items-center gap-1"><Hash size={10} className="opacity-50" /> {spot}</span>
                                   ))}
                               </div>
@@ -320,7 +340,6 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
           </div>
         )}
 
-        {/* Step 5: 상세 동행 모집글 작성 (PostCreationForm) */}
         {step === 5 && savedSchedule && (
             <PostCreationForm 
                 scheduleData={savedSchedule} 
@@ -359,7 +378,6 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         )}
       </main>
 
-      {/* 하단 푸터 (Step 1~4용) */}
       {step < 5 && (
         <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
             {step < 3 ? (
@@ -384,13 +402,10 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   );
 };
 
-/**
- * 🎨 PostCreationForm 컴포넌트 (디테일 수정 반영)
- */
 const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
     const [postData, setPostData] = useState({
       title: '',
-      status: '동행 미확정',
+      status: '모집 중',
       currentPeople: 1,
       description: '',
       targetAges: [],
@@ -400,10 +415,9 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
       password: ''
     });
   
-    const ageOptions = ['20대', '30대', '40대', '50대', '60대+'];
-    const statusOptions = ['동행 미확정', '항공권 발권완료', '출발 확정'];
+    const ageOptions = ['20대', '30대', '40대', '50대', '60대 이상'];
+    const statusOptions = ['모집 중', '출발 확정', '항공권 발권완료'];
 
-    // 필수 항목 체크 로직 (오픈채팅방 링크 제외)
     const isFormValid = 
       postData.title.trim() !== '' && 
       postData.description.trim() !== '' && 
@@ -419,13 +433,11 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
         </header>
   
         <div className="px-6 py-8 space-y-10 pb-40 text-left">
-          {/* 00. 제목 (필수) */}
           <section>
              <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><PenTool size={14}/> 00. Post Title *</label>
              <input type="text" placeholder="매력적인 모집 공고 제목" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={postData.title} onChange={(e) => setPostData({...postData, title: e.target.value})} />
           </section>
 
-          {/* 01. 상태 */}
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Target size={14}/> 01. Status</label>
             <div className="grid grid-cols-3 gap-2">
@@ -435,7 +447,6 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
-          {/* 02. 인원 */}
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Users size={14}/> 02. Current Members</label>
             <div className="bg-gray-50 p-6 rounded-[2rem] flex items-center justify-between border border-gray-100">
@@ -451,14 +462,12 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
-          {/* 03. 설명 (필수) */}
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Smile size={14}/> 03. About Our Group *</label>
             <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-sm font-medium outline-none resize-none focus:ring-2 focus:ring-gmg-green" value={postData.description} onChange={(e) => setPostData({...postData, description: e.target.value})} />
             <div className="text-right text-[10px] text-gray-300 font-bold mt-2">{postData.description.length} / 300</div>
           </section>
   
-          {/* 04. 나이 (필수) 및 05. 성별 */}
           <section className="space-y-6 text-left">
             <div>
               <label className="text-[10px] font-black text-gray-400 mb-3 block uppercase tracking-widest italic">04. Age *</label>
@@ -478,7 +487,6 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
             </div>
           </section>
   
-          {/* 06. 별명 (필수) 및 07. 오픈채팅 링크 (선택) */}
           <section className="space-y-4 pt-4 border-t border-dashed border-gray-100 text-left">
             <div>
               <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">06. Nickname *</label>
@@ -498,7 +506,6 @@ const PostCreationForm = ({ scheduleData, onComplete, onBack }) => {
               </div>
             </div>
 
-            {/* 08. 비밀번호 (필수) */}
             <div>
                 <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">08. Password *</label>
                 <div className="relative">
