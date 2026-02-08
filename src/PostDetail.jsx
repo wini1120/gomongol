@@ -145,7 +145,6 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
   const ageOptions = ["20대", "30대", "40대", "50대", "60대 이상"];
   const statusOptions = ["모집 중", "출발 확정", "항공권 발권완료", "투어사 확정", "모집 마감"];
 
-  // 지역별 아이콘 매핑 함수
   const getRegionEmoji = (region) => {
     const r = region.toLowerCase();
     if (r.includes('gobi') || r.includes('사막')) return '🐪';
@@ -271,7 +270,7 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
           </div>
         </section>
 
-        {/* 4. [중요] 상세 여행 경로 - JSON 구조에 맞춘 정밀 매핑 */}
+        {/* 4. 상세 여행 경로 */}
         {!isEditing && (
           <section className="mb-12">
             <h3 className="font-black text-xl text-gray-800 flex items-center gap-2 mb-6">
@@ -279,9 +278,7 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
             </h3>
             <div className="space-y-6">
               {post.schedules?.regions?.map((region, idx) => {
-                // regions 배열의 원소(ex: "gobi")를 키로 사용하여 spots 객체에서 해당 장소들만 추출
                 const spotList = post.schedules?.spots?.[region] || [];
-                
                 return (
                   <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm space-y-5">
                     <div className="flex items-center gap-3">
@@ -343,6 +340,8 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
         </div>
       </footer>
 
+      {/* --- 모달 영역 --- */}
+
       {/* 비밀번호 확인 모달 */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in">
@@ -356,6 +355,38 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
             <div className="flex gap-2">
               <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-400 rounded-xl font-black text-sm">취소</button>
               <button onClick={handleEditConfirm} className="flex-[2] py-4 bg-gmg-camel text-white rounded-xl font-black text-sm">확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 신고하기 모달 (이 코드가 추가되었습니다) */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative">
+            <button onClick={() => setShowReportModal(false)} className="absolute top-6 right-6 p-2 text-gray-300 hover:text-gray-500">
+              <X size={24}/>
+            </button>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-gray-800">게시글 신고</h3>
+              <p className="text-xs text-gray-400 font-bold">부적절하거나 허위 정보가 포함된 경우 신고해 주세요.</p>
+            </div>
+            <textarea 
+              maxLength={300} 
+              placeholder="신고 사유를 작성해 주세요. (최소 5자)" 
+              className="w-full h-40 bg-gray-50 rounded-2xl p-5 text-sm font-bold outline-none focus:ring-2 focus:ring-red-500 resize-none" 
+              value={reportReason} 
+              onChange={(e) => setReportReason(e.target.value)}
+            />
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-[10px] font-black text-gray-300">{reportReason.length}/300</span>
+              <button 
+                onClick={handleReportSubmit} 
+                disabled={isSubmitting} 
+                className="bg-red-500 text-white px-8 py-4 rounded-xl font-black text-sm flex items-center gap-2 active:scale-95 transition-all disabled:bg-gray-200"
+              >
+                <Send size={16}/> {isSubmitting ? '제출 중...' : '신고 제출'}
+              </button>
             </div>
           </div>
         </div>
