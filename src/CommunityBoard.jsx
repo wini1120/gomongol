@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ChevronLeft, MessageCircle, Users, Calendar, 
   Hash, Plus, Clock, Home, Compass, MessageSquareText,
-  Search, ChevronDown, Filter, ChevronRight, RotateCcw // RotateCcw 아이콘 추가
+  Search, ChevronDown, Filter, ChevronRight, RotateCcw
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -26,7 +26,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
   const genderOptions = ['전체', '남성', '여성']; 
   const ageOptions = ['전체', '20대', '30대', '40대', '50대', '60대 이상'];
 
-  // 1. 마스터 지역 정보 로드
   useEffect(() => {
     const fetchRegions = async () => {
       const { data } = await supabase.from('master_regions').select('id, region_name');
@@ -41,7 +40,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     fetchRegions();
   }, []);
 
-  // --- 필터 전체 해제 함수 ---
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedGender('전체');
@@ -50,11 +48,9 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     setCurrentPage(1);
   };
 
-  // 2. 서버 사이드 필터링 및 데이터 로드 함수
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
     try {
-      // [핵심 수정] 지역 필터가 있을 때는 !inner를 사용하여 조건에 맞는 posts만 남기고 schedules 데이터를 유지함
       const schedulesSelector = selectedRegion !== '전체' 
         ? `schedules!posts_schedule_id_fkey!inner ( * )` 
         : `schedules!posts_schedule_id_fkey ( * )`;
@@ -80,7 +76,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         query = query.or(`target_ages.cs.{"${selectedAge}"},target_ages.cs.{"나이 무관"}`);
       }
 
-      // [지역 필터링]
       if (selectedRegion !== '전체') {
         query = query.filter('schedules.regions', 'cs', `{${selectedRegion}}`);
       }
@@ -93,7 +88,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         .range(from, to);
 
       if (error) throw error;
-      
       setPosts(data || []);
       setTotalCount(count || 0);
     } catch (e) {
@@ -107,7 +101,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     fetchPosts();
   }, [fetchPosts]);
 
-  // 필터 변경 시 1페이지로 리셋
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedGender, selectedAge, selectedRegion]);
@@ -152,9 +145,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             </div>
           </nav>
         </div>
-        <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-loose">
-          Made by Go몽골<br/>Contact Us | Terms
-        </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
@@ -172,15 +162,16 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
           </div>
 
           <div className="px-6 pb-6 space-y-4">
+            {/* 1. 검색바 */}
             <div className="flex gap-2 max-w-2xl">
               <div className="relative min-w-[100px]">
                 <select 
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="w-full bg-gray-100 border-none rounded-2xl py-3.5 pl-4 pr-8 text-xs font-black appearance-none outline-none focus:ring-2 focus:ring-gmg-camel/20"
+                  className="w-full h-11 bg-gray-100 border-none rounded-2xl px-4 text-xs font-black appearance-none outline-none focus:ring-2 focus:ring-gmg-camel/20"
                 >
-                  <option value="title">게시글 제목</option>
-                  <option value="nickname">작성자 별명</option>
+                  <option value="title">제목</option>
+                  <option value="nickname">별명</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
@@ -188,24 +179,25 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
                   type="text" 
-                  placeholder={searchType === 'title' ? "찾으시는 게시글의 제목을 입력하세요" : "작성자의 별명을 입력하세요"}
-                  className="w-full bg-gray-100 border-none rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel/20 transition-all"
+                  placeholder="검색어를 입력하세요"
+                  className="w-full h-11 bg-gray-100 border-none rounded-2xl pl-12 pr-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel/20"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 mr-2">
+            {/* 2. 필터 레이아웃 - 1행: 퀵 필터 아이콘 + 지역 + 성별 */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
                   <Filter size={12} className="text-gmg-camel" />
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Quick Filters</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Filters</span>
                 </div>
                 
                 <select 
                   value={selectedRegion}
                   onChange={(e) => setSelectedRegion(e.target.value)}
-                  className={`shrink-0 px-4 py-2 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedRegion !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
+                  className={`h-9 shrink-0 px-3 py-1 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedRegion !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
                 >
                   <option value="전체">모든 지역</option>
                   {Object.entries(regionNames).map(([id, name]) => (
@@ -213,35 +205,54 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
                   ))}
                 </select>
 
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-1 shrink-0 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
                   {genderOptions.map(opt => (
                     <button 
                       key={opt}
                       onClick={() => setSelectedGender(opt)}
-                      className={`px-4 py-2 rounded-xl text-[11px] font-black border transition-all ${selectedGender === opt ? 'bg-gmg-green text-white border-gmg-green shadow-md' : 'bg-white text-gray-400 border-gray-100'}`}
+                      className={`h-7 px-4 rounded-lg text-[10px] font-black transition-all ${selectedGender === opt ? 'bg-gmg-green text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}
                     >
                       {opt}
                     </button>
                   ))}
                 </div>
+            </div>
 
-                <select 
-                  value={selectedAge}
-                  onChange={(e) => setSelectedAge(e.target.value)}
-                  className={`shrink-0 px-4 py-2 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedAge !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
-                >
-                  <option value="전체">연령대 선택</option>
-                  {ageOptions.slice(1).map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+            {/* 3. 필터 레이아웃 - 2행: 연령대 + 초기화 */}
+            <div className="flex items-center gap-2">
+                {/* PC 버전: 버튼 그룹 */}
+                <div className="hidden lg:flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+                    {ageOptions.map(opt => (
+                        <button 
+                        key={opt}
+                        onClick={() => setSelectedAge(opt)}
+                        className={`h-7 px-4 rounded-lg text-[10px] font-black transition-all ${selectedAge === opt ? 'bg-gmg-camel text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}
+                        >
+                        {opt}
+                        </button>
+                    ))}
+                </div>
 
-                {/* --- 전체 해제 버튼 --- */}
+                {/* 모바일 버전: 드롭다운 */}
+                <div className="lg:hidden relative flex-1">
+                    <select 
+                    value={selectedAge}
+                    onChange={(e) => setSelectedAge(e.target.value)}
+                    className={`w-full h-11 px-4 rounded-2xl text-[12px] font-black border transition-all appearance-none outline-none ${selectedAge !== '전체' ? 'bg-orange-50 border-gmg-camel text-gmg-camel' : 'bg-white border-gray-100 text-gray-500'}`}
+                    >
+                    <option value="전체">연령대 선택</option>
+                    {ageOptions.slice(1).map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+
                 <button 
-                  onClick={handleResetFilters}
-                  className="flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-xl text-[11px] font-black text-gray-400 border border-dashed border-gray-200 hover:bg-gray-100 transition-all ml-2"
+                    onClick={handleResetFilters}
+                    className="h-11 lg:h-9 px-4 flex items-center gap-1.5 shrink-0 bg-white border border-dashed border-gray-200 rounded-2xl lg:rounded-xl text-gray-400 text-[10px] font-black active:scale-95 transition-all hover:bg-gray-50"
                 >
-                  <RotateCcw size={12} /> 전체 해제
+                    <RotateCcw size={12} /> <span>초기화</span>
                 </button>
             </div>
           </div>
@@ -249,7 +260,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
 
         <div className="p-6 lg:px-10 flex-1">
           {isLoading ? (
-            <div className="text-center py-20 font-black text-gray-300 animate-pulse text-xl italic">데이터를 불러오는 중...</div>
+            <div className="text-center py-20 font-black text-gray-300 animate-pulse text-xl italic tracking-widest">LOADING...</div>
           ) : posts.length === 0 ? (
             <div className="text-center py-32 space-y-4">
               <div className="bg-gray-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-gray-300"><Search size={32} /></div>
@@ -306,7 +317,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
                 })}
               </div>
 
-              {/* --- 숫자 페이지네이션 --- */}
               {totalPages > 1 && (
                 <div className="flex justify-center items-center gap-2 pb-20">
                   <button 
