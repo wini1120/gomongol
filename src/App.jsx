@@ -4,6 +4,7 @@ import ItineraryBuilder from './itinerarybuilder';
 import Explorer from './explorer';
 import CommunityBoard from './CommunityBoard';
 import PostDetail from './PostDetail';
+import { Analytics } from "@vercel/analytics/react";
 
 function App() {
   const [view, setView] = useState('main'); 

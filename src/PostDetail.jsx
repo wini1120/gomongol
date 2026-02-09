@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, MessageCircle, Calendar, Users, 
   MapPin, Clock, Tag, Map, Target, Smile, Moon, Info, Hash,
-  MoreVertical, Edit2, AlertTriangle, X, Lock, Send, Check, RotateCcw, Plus, ExternalLink, Copy // Copy 아이콘 유지
+  MoreVertical, Edit2, AlertTriangle, X, Lock, Send, Check, RotateCcw, Plus, ExternalLink, Copy,
+  Trash2 // 삭제 아이콘 추가
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -11,6 +12,7 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showChatConfirmModal, setShowChatConfirmModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false); // 삭제 확인 모달 상태 추가
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,10 +84,8 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
     return kakaoPattern.test(link);
   };
 
-  // --- [수정] 게시글 자체 링크 복사 함수 ---
   const handleCopyPostLink = async () => {
     try {
-      // 현재 브라우저의 전체 URL을 복사합니다.
       await navigator.clipboard.writeText(window.location.href);
       alert('게시글 링크가 클립보드에 복사되었습니다! 친구들에게 공유해 보세요.');
     } catch (err) {
@@ -104,9 +104,46 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
     }
   };
 
+  // --- 게시글 삭제(논리 삭제) 처리 ---
+  const handleDeletePost = async () => {
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ is_delete: 'O' }) // 논리 삭제 처리
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      alert('게시글이 성공적으로 삭제되었습니다.');
+      setIsEditing(false);
+      setShowDeleteConfirmModal(false);
+      if (onUpdateSuccess) onUpdateSuccess(); // 목록 새로고침 트리거
+    } catch (e) {
+      alert('삭제 중 오류가 발생했습니다: ' + e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const executeUpdate = async () => {
     setIsSubmitting(true);
     try {
+      if (editForm.chat_link) {
+        const { data: existingPost } = await supabase
+          .from('posts')
+          .select('id')
+          .eq('chat_link', editForm.chat_link)
+          .neq('id', post.id)
+          .maybeSingle();
+
+        if (existingPost) {
+          alert('이미 등록된 채팅방입니다.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const { error: postError } = await supabase
         .from('posts')
         .update({
@@ -243,6 +280,7 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
               className="w-full text-3xl md:text-4xl font-black text-gray-900 leading-tight bg-gray-50 p-4 rounded-2xl border-2 border-dashed border-gray-200 focus:border-gmg-camel outline-none" 
               value={editForm.title} 
               onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+              placeholder="제목을 입력하세요"
             />
           ) : (
             <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight">{post.title}</h2>
@@ -329,7 +367,11 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
           {isEditing && (
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
               {masterRegions.map(reg => (
-                <button key={reg.id} onClick={() => toggleRegion(reg.id)} className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${editForm.regions.includes(reg.id) ? 'bg-gmg-green text-white border-gmg-green shadow-md' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                <button 
+                  key={reg.id} 
+                  onClick={() => toggleRegion(reg.id)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition-all border ${editForm.regions.includes(reg.id) ? 'bg-gmg-green text-white border-gmg-green shadow-md' : 'bg-gray-50 text-gray-400 border-gray-100'}`}
+                >
                   {reg.icon} {reg.region_name}
                 </button>
               ))}
@@ -425,16 +467,29 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
         </section>
       </div>
 
-      {/* --- 하단 버튼 바 (게시글 링크 복사로 수정) --- */}
       <footer className="fixed bottom-0 w-full bg-white/80 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
         <div className="max-w-3xl mx-auto">
           {isEditing ? (
-            <button onClick={handleSaveTrigger} disabled={isSubmitting || !isFormValid} className={`w-full py-5 text-white rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all ${isFormValid ? 'bg-gmg-green shadow-green-100' : 'bg-gray-300 cursor-not-allowed shadow-none'}`}>
-              <Check size={24} /> {isSubmitting ? '저장 중...' : '변경사항 저장하기'}
-            </button>
+            <div className="flex gap-3">
+              {/* [신규 추가] 게시글 삭제하기 버튼 */}
+              <button 
+                onClick={() => setShowDeleteConfirmModal(true)} 
+                className="flex-1 py-5 bg-red-500 text-white rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+              >
+                <Trash2 size={24} /> 삭제하기
+              </button>
+              
+              {/* 변경사항 저장하기 버튼 */}
+              <button 
+                onClick={handleSaveTrigger} 
+                disabled={isSubmitting || !isFormValid} 
+                className={`flex-[2] py-5 text-white rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all ${isFormValid ? 'bg-gmg-green shadow-green-100' : 'bg-gray-300 cursor-not-allowed shadow-none'}`}
+              >
+                <Check size={24} /> {isSubmitting ? '저장 중...' : '저장하기'}
+              </button>
+            </div>
           ) : (
             <div className="flex gap-3">
-              {/* 참여하기 버튼 */}
               <button 
                 onClick={() => post.chat_link && window.open(post.chat_link, '_blank')} 
                 disabled={!post.chat_link} 
@@ -443,7 +498,6 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
                 <MessageCircle size={24} /> {post.chat_link ? '오픈채팅 참여하기' : '채팅방 개설 전'}
               </button>
               
-              {/* [수정] 게시글 링크 복사 버튼 (아이콘 디자인) */}
               <button 
                 onClick={handleCopyPostLink}
                 className="flex-1 py-5 bg-gray-50 text-gray-500 rounded-[2rem] border border-gray-100 flex items-center justify-center active:scale-95 transition-all hover:bg-gray-100 shadow-sm"
@@ -457,6 +511,26 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
       </footer>
 
       {/* --- 모달 영역 --- */}
+
+      {/* [신규 추가] 게시글 삭제 확인 모달 */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={24}/></div>
+              <h3 className="text-lg font-black text-gray-800 leading-tight">게시글을 삭제할까요?</h3>
+              <p className="text-xs text-gray-400 font-bold leading-relaxed text-center">
+                삭제된 게시글은 다시 복구할 수 없으며,<br/>목록에서 즉시 사라집니다.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteConfirmModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-400 rounded-xl font-black text-sm">아니오</button>
+              <button onClick={handleDeletePost} className="flex-[2] py-4 bg-red-500 text-white rounded-xl font-black text-sm">네, 삭제할게요</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showChatConfirmModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[110] flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white w-full max-w-xs rounded-[2.5rem] p-8 space-y-6 shadow-2xl">

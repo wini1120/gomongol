@@ -1,53 +1,118 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ChevronLeft, MessageCircle, Users, Calendar, 
-  Hash, Plus, Clock, Home, Compass, MessageSquareText
+  Hash, Plus, Clock, Home, Compass, MessageSquareText,
+  Search, ChevronDown, Filter, ChevronRight, RotateCcw // RotateCcw 아이콘 추가
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // 1. [추가] DB에서 가져온 지역 마스터 정보를 저장할 상태
   const [regionNames, setRegionNames] = useState({});
+  
+  // --- 검색 및 필터 상태 관리 ---
+  const [searchType, setSearchType] = useState('title'); 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGender, setSelectedGender] = useState('전체');
+  const [selectedAge, setSelectedAge] = useState('전체');
+  const [selectedRegion, setSelectedRegion] = useState('전체');
 
+  // --- 페이지네이션 상태 ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 9;
+
+  const genderOptions = ['전체', '남성', '여성']; 
+  const ageOptions = ['전체', '20대', '30대', '40대', '50대', '60대 이상'];
+
+  // 1. 마스터 지역 정보 로드
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // [로직 변경] 지역 마스터 테이블과 게시글 데이터를 동시에 가져옵니다.
-        const [regionsRes, postsRes] = await Promise.all([
-          supabase.from('master_regions').select('id, region_name'),
-          supabase
-            .from('posts')
-            .select(`
-              *,
-              schedules!posts_schedule_id_fkey (*) 
-            `) 
-            .order('created_at', { ascending: false })
-        ]);
-
-        if (regionsRes.error) throw regionsRes.error;
-        if (postsRes.error) throw postsRes.error;
-
-        // [추가] 지역 정보를 {1: '고비...', 2: '중부...'} 형태의 객체로 변환
-        const nameMap = regionsRes.data.reduce((acc, curr) => {
+    const fetchRegions = async () => {
+      const { data } = await supabase.from('master_regions').select('id, region_name');
+      if (data) {
+        const nameMap = data.reduce((acc, curr) => {
           acc[curr.id] = curr.region_name;
           return acc;
         }, {});
-        
         setRegionNames(nameMap);
-        setPosts(postsRes.data || []);
-      } catch (e) {
-        console.error('데이터 로드 실패:', e);
-      } finally {
-        setIsLoading(false);
       }
     };
-    
-    fetchData();
+    fetchRegions();
   }, []);
+
+  // --- 필터 전체 해제 함수 ---
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedGender('전체');
+    setSelectedAge('전체');
+    setSelectedRegion('전체');
+    setCurrentPage(1);
+  };
+
+  // 2. 서버 사이드 필터링 및 데이터 로드 함수
+  const fetchPosts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // [핵심 수정] 지역 필터가 있을 때는 !inner를 사용하여 조건에 맞는 posts만 남기고 schedules 데이터를 유지함
+      const schedulesSelector = selectedRegion !== '전체' 
+        ? `schedules!posts_schedule_id_fkey!inner ( * )` 
+        : `schedules!posts_schedule_id_fkey ( * )`;
+
+      let query = supabase
+        .from('posts')
+        .select(`
+          *,
+          ${schedulesSelector}
+        `, { count: 'exact' })
+        .eq('is_delete', 'X');
+
+      if (searchQuery) {
+        query = query.ilike(searchType, `%${searchQuery}%`);
+      }
+
+      if (selectedGender !== '전체') {
+        const dbGender = selectedGender === '남성' ? '남성만' : '여성만';
+        query = query.or(`target_gender.eq.${dbGender},target_gender.eq.무관`);
+      }
+
+      if (selectedAge !== '전체') {
+        query = query.or(`target_ages.cs.{"${selectedAge}"},target_ages.cs.{"나이 무관"}`);
+      }
+
+      // [지역 필터링]
+      if (selectedRegion !== '전체') {
+        query = query.filter('schedules.regions', 'cs', `{${selectedRegion}}`);
+      }
+
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+      
+      setPosts(data || []);
+      setTotalCount(count || 0);
+    } catch (e) {
+      console.error('로드 실패:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchType, searchQuery, selectedGender, selectedAge, selectedRegion, currentPage]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  // 필터 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedGender, selectedAge, selectedRegion]);
+
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const getTimeAgo = (date) => {
     const start = new Date(date);
@@ -69,7 +134,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans max-w-[1920px] mx-auto text-gray-800">
-      {/* --- 사이드바 생략 (디자인 동일) --- */}
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-100 sticky top-0 h-screen p-8 justify-between z-50">
         <div className="space-y-10">
           <div className="flex items-center gap-2 text-gmg-camel cursor-pointer" onClick={onBack}>
@@ -88,73 +152,195 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             </div>
           </nav>
         </div>
+        <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-loose">
+          Made by Go몽골<br/>Contact Us | Terms
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="flex items-center justify-between px-6 py-5 bg-white border-b border-gray-100 sticky top-0 z-40 lg:px-10 lg:py-8 lg:bg-transparent lg:border-none">
-          <div className="flex items-center gap-3">
-            <button onClick={onBack} className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <ChevronLeft size={24} />
+        <header className="bg-white border-b border-gray-100 sticky top-0 z-40 lg:px-4">
+          <div className="flex items-center justify-between px-6 py-5 lg:py-8">
+            <div className="flex items-center gap-3">
+              <button onClick={onBack} className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ChevronLeft size={24} />
+              </button>
+              <h1 className="text-xl lg:text-3xl font-black text-gray-800">동행 찾기 🐪</h1>
+            </div>
+            <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
+              <Plus size={18} /> 동행 글올리기
             </button>
-            <h1 className="text-xl lg:text-3xl font-black text-gray-800">동행 찾기 🐪</h1>
           </div>
-          <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
-            <Plus size={18} /> 동행 글올리기
-          </button>
+
+          <div className="px-6 pb-6 space-y-4">
+            <div className="flex gap-2 max-w-2xl">
+              <div className="relative min-w-[100px]">
+                <select 
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                  className="w-full bg-gray-100 border-none rounded-2xl py-3.5 pl-4 pr-8 text-xs font-black appearance-none outline-none focus:ring-2 focus:ring-gmg-camel/20"
+                >
+                  <option value="title">게시글 제목</option>
+                  <option value="nickname">작성자 별명</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                <input 
+                  type="text" 
+                  placeholder={searchType === 'title' ? "찾으시는 게시글의 제목을 입력하세요" : "작성자의 별명을 입력하세요"}
+                  className="w-full bg-gray-100 border-none rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel/20 transition-all"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 mr-2">
+                  <Filter size={12} className="text-gmg-camel" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Quick Filters</span>
+                </div>
+                
+                <select 
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className={`shrink-0 px-4 py-2 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedRegion !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
+                >
+                  <option value="전체">모든 지역</option>
+                  {Object.entries(regionNames).map(([id, name]) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
+                </select>
+
+                <div className="flex gap-1 shrink-0">
+                  {genderOptions.map(opt => (
+                    <button 
+                      key={opt}
+                      onClick={() => setSelectedGender(opt)}
+                      className={`px-4 py-2 rounded-xl text-[11px] font-black border transition-all ${selectedGender === opt ? 'bg-gmg-green text-white border-gmg-green shadow-md' : 'bg-white text-gray-400 border-gray-100'}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+
+                <select 
+                  value={selectedAge}
+                  onChange={(e) => setSelectedAge(e.target.value)}
+                  className={`shrink-0 px-4 py-2 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedAge !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
+                >
+                  <option value="전체">연령대 선택</option>
+                  {ageOptions.slice(1).map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+
+                {/* --- 전체 해제 버튼 --- */}
+                <button 
+                  onClick={handleResetFilters}
+                  className="flex items-center gap-1.5 shrink-0 px-4 py-2 rounded-xl text-[11px] font-black text-gray-400 border border-dashed border-gray-200 hover:bg-gray-100 transition-all ml-2"
+                >
+                  <RotateCcw size={12} /> 전체 해제
+                </button>
+            </div>
+          </div>
         </header>
 
-        <div className="p-6 lg:px-10 lg:pb-20">
+        <div className="p-6 lg:px-10 flex-1">
           {isLoading ? (
             <div className="text-center py-20 font-black text-gray-300 animate-pulse text-xl italic">데이터를 불러오는 중...</div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-32 space-y-4">
+              <div className="bg-gray-100 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto text-gray-300"><Search size={32} /></div>
+              <p className="font-black text-gray-400">조건에 맞는 검색 결과가 없습니다.</p>
+              <button onClick={handleResetFilters} className="text-gmg-camel font-black text-xs underline underline-offset-4">필터 초기화하기</button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8">
-              {posts.map(post => {
-                const isAllAges = post.target_ages?.length >= 5 || post.target_ages?.includes('나이 무관');
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 lg:gap-8 mb-12">
+                {posts.map(post => {
+                  const isAllAges = post.target_ages?.length >= 5 || post.target_ages?.includes('나이 무관');
 
-                return (
-                  <div key={post.id} onClick={() => onPostClick(post)} className="group flex flex-col cursor-pointer bg-white rounded-[2.5rem] shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden">
-                    <div className="p-6 lg:p-8 flex-1 flex flex-col">
-                      <div className="flex justify-between items-start mb-6">
-                        <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tight shadow-sm ${getStatusColor(post.status)}`}>
-                          {post.status}
-                        </span>
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-gray-300 text-[10px] font-bold flex items-center gap-1"><Clock size={12} /> {getTimeAgo(post.created_at)}</span>
-                          <span className="text-gray-400 text-[10px] font-black italic">by {post.nickname}</span>
-                        </div>
-                      </div>
-
-                      <h3 className="font-black text-gray-800 text-lg lg:text-xl leading-snug mb-3 line-clamp-2 group-hover:text-gmg-camel transition-colors">{post.title}</h3>
-
-                      <div className="flex gap-4 mb-5 text-[11px] font-black text-gray-400">
-                        <div className="flex items-center gap-1.5"><Calendar size={13} className="text-gmg-camel" /><span>{post.schedules?.start_date?.replace(/-/g, '.')}</span></div>
-                        <div className="flex items-center gap-1.5"><Users size={13} className="text-gmg-camel" /><span><b className="text-gray-800">{post.current_people}</b>/{post.schedules?.people}명</span></div>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-1.5 mb-6">
-                        <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-[9px] font-black border border-gray-200/50">{post.target_gender === '무관' ? '성별무관' : post.target_gender}</span>
-                        {isAllAges ? <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">나이 무관</span> : post.target_ages?.map(age => <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">{age}</span>)}
-                      </div>
-
-                      <div className="mt-auto space-y-4 pt-4 border-t border-gray-50">
-                        <div className="flex flex-wrap gap-2">
-                          {/* [핵심 변경] 하드코딩된 상수 대신 regionNames 객체에서 실시간 조회 */}
-                          {post.schedules?.regions?.map(regionId => (
-                            <span key={regionId} className="text-[10px] font-black text-gmg-green opacity-60">
-                              # {regionNames[regionId] || '로딩 중...'}
-                            </span>
-                          ))}
+                  return (
+                    <div key={post.id} onClick={() => onPostClick(post)} className="group flex flex-col cursor-pointer bg-white rounded-[2.5rem] shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden">
+                      <div className="p-6 lg:p-8 flex-1 flex flex-col">
+                        <div className="flex justify-between items-start mb-6">
+                          <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tight shadow-sm ${getStatusColor(post.status)}`}>
+                            {post.status}
+                          </span>
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className="text-gray-300 text-[10px] font-bold flex items-center gap-1"><Clock size={12} /> {getTimeAgo(post.created_at)}</span>
+                            <span className="text-gray-400 text-[10px] font-black italic">by {post.nickname}</span>
+                          </div>
                         </div>
 
-                        <button onClick={(e) => { e.stopPropagation(); if (post.chat_link) window.open(post.chat_link, '_blank'); }} disabled={!post.chat_link} className={`w-full py-4 rounded-2xl font-black text-xs lg:text-sm flex items-center justify-center gap-2 transition-all ${post.chat_link ? 'bg-gmg-camel text-white shadow-lg shadow-orange-100 active:scale-95' : 'bg-gray-200 text-gray-300'}`}>
-                          <MessageCircle size={16} /> {post.chat_link ? '오픈채팅 참여하기' : '채팅방 개설 전'}
-                        </button>
+                        <h3 className="font-black text-gray-800 text-lg lg:text-xl leading-snug mb-3 line-clamp-2 group-hover:text-gmg-camel transition-colors">{post.title}</h3>
+
+                        <div className="flex gap-4 mb-5 text-[11px] font-black text-gray-400">
+                          <div className="flex items-center gap-1.5"><Calendar size={13} className="text-gmg-camel" /><span>{post.schedules?.start_date?.replace(/-/g, '.')}</span></div>
+                          <div className="flex items-center gap-1.5"><Users size={13} className="text-gmg-camel" /><span><b className="text-gray-800">{post.current_people}</b>/{post.schedules?.people || 0}명</span></div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1.5 mb-6">
+                          <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-[9px] font-black border border-gray-200/50">{post.target_gender === '무관' ? '성별무관' : post.target_gender}</span>
+                          {isAllAges ? <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">나이 무관</span> : post.target_ages?.map(age => <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">{age}</span>)}
+                        </div>
+
+                        <div className="mt-auto space-y-4 pt-4 border-t border-gray-50">
+                          <div className="flex flex-wrap gap-2">
+                            {post.schedules?.regions?.map(regionId => (
+                              <span key={regionId} className="text-[10px] font-black text-gmg-green opacity-60">
+                                # {regionNames[regionId] || '로딩 중...'}
+                              </span>
+                            ))}
+                          </div>
+
+                          <button onClick={(e) => { e.stopPropagation(); if (post.chat_link) window.open(post.chat_link, '_blank'); }} disabled={!post.chat_link} className={`w-full py-4 rounded-2xl font-black text-xs lg:text-sm flex items-center justify-center gap-2 transition-all ${post.chat_link ? 'bg-gmg-camel text-white shadow-lg shadow-orange-100 active:scale-95' : 'bg-gray-200 text-gray-300'}`}>
+                            <MessageCircle size={16} /> {post.chat_link ? '참여하기' : '채팅방 개설 전'}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+
+              {/* --- 숫자 페이지네이션 --- */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 pb-20">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${
+                        currentPage === i + 1 
+                        ? 'bg-gmg-camel text-white shadow-lg shadow-orange-100 scale-110' 
+                        : 'bg-white text-gray-400 hover:bg-gray-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
