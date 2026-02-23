@@ -13,7 +13,8 @@ const AGENCY_COLORS = ['bg-orange-50', 'bg-blue-50', 'bg-green-50', 'bg-amber-50
 
 const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const [step, setStep] = useState(1);
-  const contentRef = useRef(null);
+  const contentRef = useRef(null);   // 일정표 이미지용
+  const memoExportRef = useRef(null); // 주관식 요청사항 이미지용
   
   const [isSaving, setIsSaving] = useState(false);
   const [savedSchedule, setSavedSchedule] = useState(null);
@@ -107,24 +108,66 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
 
   const handleExportImage = async () => {
     if (contentRef.current === null) return;
+    const dataUrl = await toPng(contentRef.current, {
+      cacheBust: true,
+      backgroundColor: '#ffffff',
+      style: { padding: '40px', borderRadius: '0px' }
+    });
+    const link = document.createElement('a');
+    link.download = `GoMongol_위시리스트.png`;
+    link.href = dataUrl;
+    link.click();
+  };
+
+  const handleExportMemoImage = async () => {
+    const el = memoExportRef.current;
+    if (!el) return;
+    const orig = {
+      position: el.style.position,
+      left: el.style.left,
+      top: el.style.top,
+      opacity: el.style.opacity,
+      zIndex: el.style.zIndex,
+      pointerEvents: el.style.pointerEvents
+    };
     try {
-      const dataUrl = await toPng(contentRef.current, { 
-        cacheBust: true, 
+      el.style.position = 'fixed';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.opacity = '0.01';
+      el.style.zIndex = '-1';
+      el.style.pointerEvents = 'none';
+      await new Promise(r => requestAnimationFrame(r));
+      const dataUrl = await toPng(el, {
+        cacheBust: true,
         backgroundColor: '#ffffff',
-        style: { padding: '40px', borderRadius: '0px' }
+        style: { padding: '32px', borderRadius: '0px' }
       });
       const link = document.createElement('a');
-      link.download = `GoMongol_Wishlist.png`;
+      link.download = `GoMongol_주관식요청사항.png`;
       link.href = dataUrl;
       link.click();
-    } catch (err) {
-      console.error('이미지 저장 실패:', err);
+    } finally {
+      el.style.position = orig.position;
+      el.style.left = orig.left;
+      el.style.top = orig.top;
+      el.style.opacity = orig.opacity;
+      el.style.zIndex = orig.zIndex;
+      el.style.pointerEvents = orig.pointerEvents;
     }
   };
 
   const handleConsulting = async () => {
-    await handleExportImage();
-    setStep(4);
+    try {
+      await handleExportImage();
+      if (consultNote.trim()) {
+        await handleExportMemoImage();
+      }
+      setStep(4);
+    } catch (err) {
+      console.error('이미지 저장 실패:', err);
+      alert('이미지 저장 중 오류가 발생했습니다.');
+    }
   };
 
   // [수정] 저장 시 신규 스키마(ID 기반) 적용
@@ -307,7 +350,8 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         )}
 
         {step === 3 && (
-          <div className="pr-1 overflow-visible">
+          <div className="pr-1 overflow-visible space-y-6">
+            {/* 일정표 이미지용: 기본정보 + 투어정보만 */}
             <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-visible text-left">
               <div className="flex items-center gap-2 mb-6 opacity-80">
                   <Compass size={20} className="text-gmg-camel" />
@@ -339,23 +383,35 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                       ))}
                   </div>
               </section>
-              <section className="mt-6 pt-6 border-t border-gray-100 text-left">
-                  <h4 className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest flex items-center gap-1">견적 상담 시 전달 메모</h4>
-                  <div className="bg-gray-50 p-4 rounded-[1.5rem] border border-gray-100 min-h-[60px]">
-                      <p className="text-sm font-bold text-gray-800 whitespace-pre-wrap leading-relaxed">{consultNote || '—'}</p>
-                  </div>
-              </section>
             </div>
-            <div className="mt-6 px-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">위 내용은 이미지 저장 시 하단에 포함됩니다</label>
+
+            {/* 입력용: 견적 상담 시 전달 메모 */}
+            <div className="animate-in fade-in duration-300 bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm text-left">
+              <h4 className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest flex items-center gap-1">견적 상담 시 전달 메모</h4>
+              <p className="text-[10px] text-gray-400 font-bold mb-2">작성 시 주관식 요청사항 이미지로 따로 저장됩니다</p>
               <textarea
                 value={consultNote}
                 onChange={(e) => setConsultNote(e.target.value)}
                 placeholder="예: 특별히 가보고 싶은 곳, 식사 선호, 이동 편의 등 여행사에 전하고 싶은 말을 적어주세요"
                 maxLength={500}
-                className="w-full h-24 p-4 rounded-2xl border border-gray-200 text-sm font-medium outline-none focus:ring-2 focus:ring-gmg-camel resize-none"
+                className="w-full h-24 p-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-medium outline-none focus:ring-2 focus:ring-gmg-camel resize-none"
               />
               <p className="text-right text-[10px] text-gray-400 font-bold mt-1">{consultNote.length}/500</p>
+            </div>
+
+            {/* 주관식 요청사항 이미지용 (화면 밖 렌더, export 시 사용) */}
+            <div
+              ref={memoExportRef}
+              className="bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm text-left w-[400px] absolute -left-[9999px] top-0"
+            >
+              <div className="flex items-center gap-2 mb-4 opacity-80">
+                <Compass size={18} className="text-gmg-camel" />
+                <span className="text-lg font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
+              </div>
+              <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest">주관식 요청사항</h4>
+              <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 min-h-[80px]">
+                <p className="text-sm font-bold text-gray-800 whitespace-pre-wrap leading-relaxed">{consultNote.trim() || '(작성 내용 없음)'}</p>
+              </div>
             </div>
           </div>
         )}
@@ -366,7 +422,9 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
               <div className="bg-white p-2 rounded-xl text-gmg-camel shadow-sm"><Info size={20} /></div>
               <div className="space-y-1">
                 <p className="text-sm font-black text-gray-800">이미지 저장이 완료되었습니다!</p>
-                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">원하시는 여행사를 선택한 후 위시리스트 이미지를 전송해 주세요.</p>
+                <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
+                  {consultNote.trim() ? '위시리스트 이미지와 주관식 요청사항 이미지가 다운로드되었습니다.' : '위시리스트 이미지가 다운로드되었습니다.'} 원하시는 여행사를 선택한 후 전송해 주세요.
+                </p>
               </div>
             </div>
             <div className="space-y-3">
