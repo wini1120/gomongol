@@ -1,18 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Map, ChevronRight, Search, Building2, Star, 
-  CheckCircle, Compass, Home, MessageSquareText, Users, Globe, X, Send, BarChart3, ShieldCheck, Zap
+  CheckCircle, Compass, Home, MessageSquareText, Users, Globe, X, Send, BarChart3, ShieldCheck, Zap, Lock
 } from 'lucide-react';
+import { supabase } from './supabaseClient';
+import { hashPassword, isValidUserId, isPasswordValid } from './authUtils';
 
-const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
-  const [isContactOpen, setIsContactOpen] = useState(false); // 파트너 문의 모달 상태
+const AGENCY_COLORS = ['bg-orange-50', 'bg-blue-50', 'bg-green-50', 'bg-amber-50', 'bg-sky-50'];
 
-  // 위니님이 학습시킨 실제 파트너 여행사 데이터
-  const agencies = [
-    { id: 1, name: "이지조이트래블", rating: 4.9, reviews: 128, color: "bg-orange-50", desc: "고비 사막 투어 전문 | 한국어 가이드 배정" },
-    { id: 2, name: "고비트래블", rating: 4.8, reviews: 95, color: "bg-blue-50", desc: "프리미엄 럭셔리 게르 | 최신 스타리아 보유" },
-    { id: 3, name: "푸제투어", rating: 4.7, reviews: 210, color: "bg-green-50", desc: "북부 홉스굴 전문 | 승마 트레킹 특화" },
-  ];
+const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartReviewBoard, onAgencyClick }) => {
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [agencyForm, setAgencyForm] = useState({
+    company_name: '',
+    user_id: '',
+    user_pw: '',
+    company_kakao_link: '',
+    company_email: ''
+  });
+  const [agencySubmitting, setAgencySubmitting] = useState(false);
+  const [agencyError, setAgencyError] = useState('');
+  const [agencySuccess, setAgencySuccess] = useState(false);
+  const [activeAgencies, setActiveAgencies] = useState([]);
+
+  useEffect(() => {
+    const fetchAgencies = async () => {
+      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link').eq('status', 'ACTIVE').order('user_no');
+      setActiveAgencies(data || []);
+    };
+    fetchAgencies();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans relative">
@@ -45,13 +61,99 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
                   </div>
                 </div>
               </div>
-              {/* 모달 우측: 신청 폼 */}
+              {/* 모달 우측: 빠른 회원가입 폼 */}
               <div className="lg:w-1/2 p-10 bg-white">
-                <h3 className="text-xl font-black text-gray-800 mb-6">입점 문의하기</h3>
-                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                  <input type="text" className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-gmg-camel" placeholder="여행사 이름" />
-                  <input type="text" className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-gmg-camel" placeholder="담당자 연락처 (카톡 ID 등)" />
-                  <button className="w-full bg-gmg-camel text-white py-4 rounded-2xl font-black shadow-lg shadow-orange-100 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">신청 완료하기 <Send size={18} /></button>
+                <h3 className="text-xl font-black text-gray-800 mb-6">빠른 회원가입하고 입점하기</h3>
+                <form
+                  className="space-y-4"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!agencyForm.company_name.trim()) { setAgencyError('회사명을 입력하세요.'); return; }
+                    if (!isValidUserId(agencyForm.user_id)) { setAgencyError('ID는 영문·숫자 3~20자로 입력하세요.'); return; }
+                    if (!isPasswordValid(agencyForm.user_pw)) { setAgencyError('비밀번호는 영문+숫자 조합 8자 이상이어야 합니다.'); return; }
+                    setAgencyError('');
+                    setAgencySubmitting(true);
+                    try {
+                      const hashedPw = hashPassword(agencyForm.user_pw);
+                      const { error } = await supabase.from('agency_user').insert([{
+                        company_name: agencyForm.company_name.trim(),
+                        user_id: agencyForm.user_id.trim(),
+                        user_pw: hashedPw,
+                        company_email: (agencyForm.company_email || '').trim() || '',
+                        company_kakao_link: (agencyForm.company_kakao_link || '').trim() || null
+                      }]);
+                      if (error) throw error;
+                      setAgencyForm({ company_name: '', user_id: '', user_pw: '', company_kakao_link: '', company_email: '' });
+                      setAgencyError('');
+                      setAgencySuccess(true);
+                      setTimeout(() => {
+                        setAgencySuccess(false);
+                        setIsContactOpen(false);
+                      }, 1800);
+                    } catch (err) {
+                      console.error(err);
+                      setAgencyError(err?.code === '23505' ? '이미 사용 중인 ID입니다.' : (err?.message || '제출에 실패했습니다.'));
+                    } finally {
+                      setAgencySubmitting(false);
+                    }
+                  }}
+                >
+                  <input
+                    type="text"
+                    required
+                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-gmg-camel"
+                    placeholder="회사명 *"
+                    value={agencyForm.company_name}
+                    onChange={(e) => setAgencyForm(f => ({ ...f, company_name: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    required
+                    maxLength={20}
+                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-gmg-camel"
+                    placeholder="ID (영문·숫자 3~20자) *"
+                    value={agencyForm.user_id}
+                    onChange={(e) => setAgencyForm(f => ({ ...f, user_id: e.target.value.replace(/[^a-zA-Z0-9]/g, '') }))}
+                  />
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 pr-12 text-sm font-bold focus:ring-2 focus:ring-gmg-camel"
+                      placeholder="비밀번호 (영문+숫자 8자 이상) *"
+                      value={agencyForm.user_pw}
+                      onChange={(e) => setAgencyForm(f => ({ ...f, user_pw: e.target.value }))}
+                    />
+                    <Lock size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" />
+                  </div>
+                  <input
+                    type="url"
+                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-gmg-camel"
+                    placeholder="카카오톡 채팅방 링크"
+                    value={agencyForm.company_kakao_link}
+                    onChange={(e) => setAgencyForm(f => ({ ...f, company_kakao_link: e.target.value }))}
+                  />
+                  <input
+                    type="email"
+                    className="w-full bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-gmg-camel"
+                    placeholder="회사 이메일 (선택)"
+                    value={agencyForm.company_email}
+                    onChange={(e) => setAgencyForm(f => ({ ...f, company_email: e.target.value }))}
+                  />
+                  {agencySuccess && (
+                    <div className="p-4 rounded-2xl bg-green-50 border border-green-200 text-center">
+                      <p className="text-sm font-black text-green-700">회원가입이 완료되었습니다.</p>
+                      <p className="text-xs font-bold text-green-600 mt-1">입점 검토 후 연락드리겠습니다.</p>
+                    </div>
+                  )}
+                  {agencyError && <p className="text-xs font-black text-red-500">{agencyError}</p>}
+                  <button
+                    type="submit"
+                    disabled={agencySubmitting || agencySuccess}
+                    className="w-full bg-gmg-camel text-white py-4 rounded-2xl font-black shadow-lg shadow-orange-100 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
+                  >
+                    {agencySubmitting ? '가입 중...' : <>회원가입 완료 <Send size={18} /></>}
+                  </button>
                 </form>
               </div>
             </div>
@@ -73,14 +175,14 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
             <div onClick={onStartCommunity} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
               <Users size={20} /> <span>동행찾기 게시판</span>
             </div>
-            <div className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
+            <div onClick={onStartReviewBoard} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
               <MessageSquareText size={20} /> <span>여행 후기 게시판</span>
             </div>
           </nav>
         </div>
         <div className="text-[10px] text-gray-300 font-bold uppercase tracking-widest leading-loose">
           Made by Go몽골<br/>
-          <span className="hover:text-gmg-camel cursor-pointer underline transition-colors" onClick={() => setIsContactOpen(true)}>Contact Us</span> | Terms
+          <span className="hover:text-gmg-camel cursor-pointer underline transition-colors" onClick={() => setIsContactOpen(true)}>빠른 회원가입하고 입점하기</span> | Terms
         </div>
       </aside>
 
@@ -141,7 +243,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
                 <span className="text-[10px] lg:text-sm font-black text-gray-600 tracking-tighter">동행 모집하기</span>
               </button>
               
-              <button className="bg-white border-2 border-blue-50 py-4 lg:py-6 rounded-[1.8rem] lg:rounded-[2.5rem] flex flex-col items-center justify-center gap-1.5 shadow-sm hover:border-blue-400 transition-all active:scale-95">
+              <button onClick={onStartReviewBoard} className="bg-white border-2 border-blue-50 py-4 lg:py-6 rounded-[1.8rem] lg:rounded-[2.5rem] flex flex-col items-center justify-center gap-1.5 shadow-sm hover:border-blue-400 transition-all active:scale-95">
                 <div className="bg-blue-50 p-2 lg:p-3 rounded-xl lg:rounded-2xl">
                   <MessageSquareText size={18} className="text-blue-400" />
                 </div>
@@ -157,26 +259,31 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
               <span className="text-xs text-gray-400 font-bold border-b border-gray-200 pb-0.5 cursor-pointer">전체보기</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
-              {agencies.map(agency => (
-                <div key={agency.id} className="bg-white p-7 lg:p-8 rounded-[2.8rem] border border-gray-50 shadow-sm hover:shadow-md transition-all flex flex-col gap-4">
-                  <div className="flex items-center gap-5">
-                    <div className={`w-14 h-14 ${agency.color} rounded-2xl flex items-center justify-center shrink-0`}>
-                      <Building2 size={24} className="text-gray-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-black text-gray-800 lg:text-lg">{agency.name}</h4>
-                        <CheckCircle size={16} className="text-blue-500 fill-blue-500 text-white" />
+              {activeAgencies.length === 0 ? (
+                <p className="text-sm text-gray-400 font-bold py-8 text-center col-span-full">등록된 인증 여행사가 없습니다.</p>
+              ) : (
+                activeAgencies.map((agency, i) => (
+                  <div
+                    key={agency.user_no}
+                    role="button"
+                    onClick={() => onAgencyClick && onAgencyClick(agency)}
+                    className="bg-white p-7 lg:p-8 rounded-[2.8rem] border border-gray-50 shadow-sm transition-all flex flex-col gap-4 hover:shadow-md cursor-pointer hover:border-gmg-camel/30"
+                  >
+                    <div className="flex items-center gap-5">
+                      <div className={`w-14 h-14 ${AGENCY_COLORS[i % AGENCY_COLORS.length]} rounded-2xl flex items-center justify-center shrink-0`}>
+                        <Building2 size={24} className="text-gray-400" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Star size={14} className="text-orange-400 fill-orange-400" />
-                        <span className="text-sm font-bold text-gray-600">{agency.rating}</span>
-                        <span className="text-[10px] text-gray-300 font-bold uppercase ml-1 tracking-tighter">Reviews {agency.reviews}</span>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-black text-gray-800 lg:text-lg">{agency.company_name}</h4>
+                          <CheckCircle size={16} className="text-blue-500 fill-blue-500 text-white" />
+                        </div>
+                        {agency.company_kakao_link && <span className="text-[10px] font-bold text-gmg-camel">견적 상담</span>}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
 
@@ -184,7 +291,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity }) => {
           <footer className="py-20 border-t border-gray-100 text-center lg:text-left flex flex-col lg:flex-row justify-between items-center gap-8">
             <div className="space-y-2">
               <p className="text-[12px] font-black text-gray-300 uppercase tracking-[0.2em]">
-                Made by Go몽골 | <span onClick={() => setIsContactOpen(true)} className="cursor-pointer hover:text-gmg-camel underline transition-colors">Contact Us</span>
+                Made by Go몽골 | <span onClick={() => setIsContactOpen(true)} className="cursor-pointer hover:text-gmg-camel underline transition-colors">빠른 회원가입하고 입점하기</span>
               </p>
               <p className="text-[11px] text-gray-200 font-medium">© 2026 GoMongol. All rights reserved. <span className="ml-2 hover:underline cursor-pointer">사업자정보확인</span></p>
             </div>

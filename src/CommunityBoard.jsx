@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ChevronLeft, MessageCircle, Users, Calendar, 
   Hash, Plus, Clock, Home, Compass, MessageSquareText,
-  Search, ChevronDown, Filter, ChevronRight, RotateCcw, User, Lock, X
+  Search, ChevronDown, Filter, ChevronRight, RotateCcw, X
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { comparePassword } from './authUtils';
@@ -91,10 +91,6 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         query = query.or(`target_gender.eq.${dbGender},target_gender.eq.무관`);
       }
 
-      if (selectedAge !== '전체') {
-        query = query.or(`target_ages.cs.{"${selectedAge}"},target_ages.cs.{"나이 무관"}`);
-      }
-
       if (hasRegionFilter && selectedRegions.length > 0) {
         const regionIds = selectedRegions.map(r => Number(r));
         query = query.overlaps('schedules.regions', regionIds);
@@ -103,13 +99,31 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
+      const useClientAgeFilter = selectedAge !== '전체';
+      const fetchFrom = useClientAgeFilter ? 0 : from;
+      const fetchTo = useClientAgeFilter ? 199 : to;
+
       const { data, count, error } = await query
         .order('created_at', { ascending: false })
-        .range(from, to);
+        .range(fetchFrom, fetchTo);
 
       if (error) throw error;
-      setPosts(data || []);
-      setTotalCount(count || 0);
+
+      let list = data || [];
+      if (useClientAgeFilter) {
+        list = list.filter((p) => {
+          const ages = p.target_ages;
+          if (!ages || !Array.isArray(ages)) return false;
+          return ages.includes(selectedAge);
+        });
+        const totalFiltered = list.length;
+        list = list.slice(from, to);
+        setPosts(list);
+        setTotalCount(totalFiltered);
+      } else {
+        setPosts(list);
+        setTotalCount(count || 0);
+      }
     } catch (e) {
       console.error('로드 실패:', e);
     } finally {
@@ -209,11 +223,18 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
               </button>
               <h1 className="text-xl lg:text-3xl font-black text-gray-800">동행 찾기 🐪</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }} className="hidden lg:flex items-center gap-2 bg-white border-2 border-gmg-camel text-gmg-camel px-4 py-2.5 rounded-xl font-black text-xs hover:bg-orange-50 transition-all">
-                <User size={16} /> 내 게시글 찾기
+            <div className="hidden lg:flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }}
+                className="h-12 px-5 rounded-2xl font-black text-sm border-2 border-gray-200 bg-white text-gray-700 hover:border-gmg-camel hover:text-gmg-camel hover:bg-orange-50/50 transition-all"
+              >
+                내 글 찾기
               </button>
-              <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
+              <button
+                onClick={onStartBuilder}
+                className="h-12 px-6 rounded-2xl font-black text-sm bg-gmg-green text-white shadow-lg shadow-green-100 hover:scale-105 transition-all flex items-center gap-2"
+              >
                 <Plus size={18} /> 동행 글올리기
               </button>
             </div>
@@ -409,14 +430,26 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         </div>
       </main>
 
-      <button onClick={onStartBuilder} className="fixed bottom-8 right-8 lg:hidden w-14 h-14 bg-gmg-green text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-50 hover:scale-110"><Plus size={28} /></button>
+      {/* 모바일: 내 글 찾기 + 동행 글올리기 한 줄 정렬 */}
+      <div className="lg:hidden fixed bottom-6 left-6 right-6 flex items-center justify-end gap-3 z-50">
+        <button
+          type="button"
+          onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }}
+          className="h-12 px-5 rounded-2xl font-black text-sm border-2 border-gray-200 bg-white text-gray-700 shadow-xl"
+        >
+          내 글 찾기
+        </button>
+        <button onClick={onStartBuilder} className="h-12 px-5 rounded-2xl font-black text-sm bg-gmg-green text-white shadow-2xl flex items-center gap-2">
+          <Plus size={20} /> 동행 글올리기
+        </button>
+      </div>
 
-      {/* 내 게시글 찾기 모달 */}
+      {/* 내 글 찾기 모달 */}
       {showMyPostsModal && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => !myPostsChecking && setShowMyPostsModal(false)}>
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-black text-gray-800">내 게시글 찾기</h3>
+              <h3 className="text-lg font-black text-gray-800">내 글 찾기</h3>
               <button type="button" onClick={() => !myPostsChecking && setShowMyPostsModal(false)} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"><X size={20} /></button>
             </div>
             <p className="text-xs text-gray-500 font-bold mb-4">게시글 작성 시 사용한 아이디와 비밀번호를 입력하세요.</p>
@@ -432,14 +465,12 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             </div>
             {myPostsModalError && <p className="text-xs font-black text-red-500 mb-3">{myPostsModalError}</p>}
             <button type="button" onClick={handleMyPostsSubmit} disabled={myPostsChecking} className="w-full h-12 bg-gmg-camel text-white rounded-xl font-black text-sm disabled:opacity-50">
-              {myPostsChecking ? '확인 중...' : '내 게시글 보기'}
+              {myPostsChecking ? '확인 중...' : '내 글 보기'}
             </button>
           </div>
         </div>
       )}
 
-      {/* 모바일: 내 게시글 찾기 버튼 */}
-      <button type="button" onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }} className="lg:hidden fixed bottom-24 right-8 w-12 h-12 bg-white border-2 border-gmg-camel text-gmg-camel rounded-full shadow-xl flex items-center justify-center z-50 hover:bg-orange-50"><User size={22} /></button>
     </div>
   );
 };

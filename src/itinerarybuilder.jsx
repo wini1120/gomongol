@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ChevronLeft, Users, Calendar, Moon, MapPin, 
   CheckCircle2, AlertCircle, MessageCircle, 
@@ -9,12 +9,23 @@ import { toPng } from 'html-to-image';
 import { supabase } from './supabaseClient';
 import { hashPassword, isValidUserId, isPasswordValid } from './authUtils';
 
+const AGENCY_COLORS = ['bg-orange-50', 'bg-blue-50', 'bg-green-50', 'bg-amber-50', 'bg-sky-50'];
+
 const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const [step, setStep] = useState(1);
   const contentRef = useRef(null);
   
   const [isSaving, setIsSaving] = useState(false);
-  const [savedSchedule, setSavedSchedule] = useState(null); 
+  const [savedSchedule, setSavedSchedule] = useState(null);
+  const [activeAgencies, setActiveAgencies] = useState([]);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link').eq('status', 'ACTIVE').order('user_no');
+      setActiveAgencies(data || []);
+    };
+    fetch();
+  }, []);
 
   const [formData, setFormData] = useState({
     people: 4,
@@ -23,6 +34,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
     selectedRegions: [], // 이제 숫자 ID 배열 [1, 2]
     spots: {} // 이제 숫자 ID를 키로 하는 객체 {"1": [], "2": []}
   });
+  const [consultNote, setConsultNote] = useState(''); // 견적 상담 시 이미지 하단에 포함될 주관식 메모
 
   // [수정] DB의 master_regions 테이블 ID와 일치하도록 변경
   const regionData = [
@@ -52,11 +64,6 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
     }
   ];
 
-  const partnerAgencies = [
-    { id: 1, name: "이지조이트래블", rating: 4.9, reviews: 128, color: "bg-orange-50" },
-    { id: 2, name: "고비트래블", rating: 4.8, reviews: 95, color: "bg-blue-50" },
-    { id: 3, name: "푸제투어", rating: 4.7, reviews: 210, color: "bg-green-50" },
-  ];
 
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => (step === 1 ? onBack() : setStep(prev => prev - 1));
@@ -332,6 +339,23 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                       ))}
                   </div>
               </section>
+              <section className="mt-6 pt-6 border-t border-gray-100 text-left">
+                  <h4 className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest flex items-center gap-1">견적 상담 시 전달 메모</h4>
+                  <div className="bg-gray-50 p-4 rounded-[1.5rem] border border-gray-100 min-h-[60px]">
+                      <p className="text-sm font-bold text-gray-800 whitespace-pre-wrap leading-relaxed">{consultNote || '—'}</p>
+                  </div>
+              </section>
+            </div>
+            <div className="mt-6 px-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">위 내용은 이미지 저장 시 하단에 포함됩니다</label>
+              <textarea
+                value={consultNote}
+                onChange={(e) => setConsultNote(e.target.value)}
+                placeholder="예: 특별히 가보고 싶은 곳, 식사 선호, 이동 편의 등 여행사에 전하고 싶은 말을 적어주세요"
+                maxLength={500}
+                className="w-full h-24 p-4 rounded-2xl border border-gray-200 text-sm font-medium outline-none focus:ring-2 focus:ring-gmg-camel resize-none"
+              />
+              <p className="text-right text-[10px] text-gray-400 font-bold mt-1">{consultNote.length}/500</p>
             </div>
           </div>
         )}
@@ -346,15 +370,24 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
               </div>
             </div>
             <div className="space-y-3">
-              {partnerAgencies.map(agency => (
-                <button key={agency.id} onClick={() => alert(`${agency.name} 연결`)} className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-left">
-                    <div className={`w-12 h-12 ${agency.color} rounded-2xl flex items-center justify-center`}><Building2 size={24} className="text-gray-300 opacity-50" /></div>
-                    <div className="text-left"><h4 className="font-black text-gray-800">{agency.name}</h4><div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold"><Star size={10} className="text-orange-400 fill-orange-400" />{agency.rating}</div></div>
-                  </div>
-                  <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"><MessageCircle size={14} /> 상담</div>
-                </button>
-              ))}
+              {activeAgencies.length === 0 ? (
+                <p className="text-sm text-gray-400 font-bold py-6 text-center">등록된 인증 여행사가 없습니다.</p>
+              ) : (
+                activeAgencies.map((agency, i) => (
+                  <button
+                    key={agency.user_no}
+                    type="button"
+                    onClick={() => { if (agency.company_kakao_link) window.open(agency.company_kakao_link, '_blank'); else alert('연결 링크가 등록되지 않았습니다.'); }}
+                    className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between hover:border-gmg-camel transition-all"
+                  >
+                    <div className="flex items-center gap-4 text-left">
+                      <div className={`w-12 h-12 ${AGENCY_COLORS[i % AGENCY_COLORS.length]} rounded-2xl flex items-center justify-center`}><Building2 size={24} className="text-gray-300 opacity-50" /></div>
+                      <div className="text-left"><h4 className="font-black text-gray-800">{agency.company_name}</h4></div>
+                    </div>
+                    <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"><MessageCircle size={14} /> 상담</div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         )}
