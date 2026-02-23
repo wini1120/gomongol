@@ -1,108 +1,140 @@
-import React, { useState } from 'react';
-import { ChevronLeft, MapPin, Clock, Star, ArrowRight, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, MapPin, Sparkles, ArrowRight, X, Info, Route, MousePointer2 } from 'lucide-react';
+import { supabase } from './supabaseClient';
 
 const Explorer = ({ onBack, onStartBuilder }) => {
-  const [activeRegion, setActiveRegion] = useState('gobi');
+  const [spots, setSpots] = useState([]); 
+  const [selectedSpot, setSelectedSpot] = useState(null);
+  const [activeRegion, setActiveRegion] = useState(0); // 0: 전체, 1: 고비, 2: 중부, 3: 홉스골
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const regionDetails = {
-    gobi: {
-      name: '남고비 사막',
-      tagline: '지평선의 끝, 붉은 절벽과 은하수',
-      img: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&q=80&w=800',
-      spots: [
-        { name: '차강 소브라가', desc: '몽골의 그랜드 캐니언이라 불리는 형형색색의 절벽', tip: '일몰 때가 가장 예뻐요' },
-        { name: '욜린암', desc: '한여름에도 얼음이 남아있는 거대한 협곡', tip: '말 트레킹 코스로 추천' },
-        { name: '홍고링 엘스', desc: '노래하는 모래 언덕, 세계 3대 사막의 위엄', tip: '맨발로 올라가보세요' }
-      ]
-    },
-    central: {
-      name: '중부 초원',
-      tagline: '푸른 초원 위 야생마와 온천 힐링',
-      img: 'https://images.unsplash.com/photo-1536431311719-398b6704d4cc?auto=format&fit=crop&q=80&w=800',
-      spots: [
-        { name: '테를지 국립공원', desc: '기암괴석과 푸른 초원이 어우러진 휴양지', tip: '거북이 바위는 필수 인증샷' },
-        { name: '쳉헤르 온천', desc: '밤하늘의 별을 보며 즐기는 야외 노천탕', tip: '피로 회복에 최고예요' }
-      ]
-    },
-    khuvsgul: {
-      name: '홉스굴 북부',
-      tagline: '어머니의 바다, 푸른 진주 홉스굴 호수',
-      img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=800',
-      spots: [
-        { name: '홉스굴 호수', desc: '세계에서 가장 맑은 민물 호수 중 하나', tip: '보트 투어를 꼭 해보세요' },
-        { name: '순록 마을', desc: '차탕족의 순록 문화', tip: '순록과 사진 찍기 가능' }
-      ]
-    }
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // 핀 없는 깨끗한 배경 이미지 경로
+  const mapImageUrl = "/mongol_map_clean.png"; 
+
+  const regionConfigs = {
+    0: { name: '전체보기', scale: 1, x: 50, y: 50, color: '#64748b' },
+    1: { name: '남부 고비', scale: 2.2, x: 55, y: 80, color: '#f59e0b' },
+    2: { name: '중부 초원', scale: 1.8, x: 55, y: 55, color: '#10b981' },
+    3: { name: '북부 홉스굴', scale: 2.5, x: 45, y: 25, color: '#0ea5e9' },
   };
 
-  const current = regionDetails[activeRegion];
+  useEffect(() => {
+    const fetchSpots = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase.from('master_spots').select('*');
+        if (error) throw error;
+        setSpots(data || []);
+      } catch (e) { console.error(e); } finally { setIsLoading(false); }
+    };
+    fetchSpots();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white font-sans max-w-md mx-auto shadow-2xl relative flex flex-col text-gray-800">
+    <div className="h-screen w-full bg-[#E0F2FE] relative overflow-hidden font-sans">
       
-      {/* 1. Header */}
-      <header className="flex items-center px-4 py-5 bg-white sticky top-0 z-50 shadow-sm">
-        <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-          <ChevronLeft size={24} className="text-gray-600" />
-        </button>
-        <h1 className="flex-1 text-center text-lg font-black pr-8">몽골 투어 둘러보기</h1>
-      </header>
-
-      {/* 2. Region Tabs */}
-      <div className="flex px-6 gap-6 border-b border-gray-50 overflow-x-auto no-scrollbar bg-white">
-        {Object.keys(regionDetails).map((key) => (
-          <button 
-            key={key} 
-            onClick={() => setActiveRegion(key)} 
-            className={`py-4 text-sm font-black transition-all whitespace-nowrap ${
-              activeRegion === key ? 'text-gmg-camel border-b-2 border-gmg-camel' : 'text-gray-300'
-            }`}
-          >
-            {regionDetails[key].name}
-          </button>
-        ))}
+      {/* 1. 배경 지도 레이어 (줌 효과 포함) */}
+      <div 
+        className="absolute inset-0 transition-all duration-1000 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+        style={{
+          transform: `scale(${regionConfigs[activeRegion].scale})`,
+          transformOrigin: `${regionConfigs[activeRegion].x}% ${regionConfigs[activeRegion].y}%`,
+          filter: selectedSpot ? 'blur(12px) brightness(0.9)' : 'none'
+        }}
+      >
+        <div className="relative w-full h-full flex items-center justify-center">
+          <img src={mapImageUrl} className="w-full h-full object-contain p-10 select-none opacity-80" alt="Clean Map" />
+          
+          {!isLoading && spots.map((spot) => {
+            // 현재 활성화된 지역의 핀만 보여주거나, 전체보기일 때는 대표 핀만 노출
+            const isVisible = activeRegion === 0 ? spot.is_representative : activeRegion === spot.region_id;
+            const pinScale = 1 / Math.sqrt(regionConfigs[activeRegion].scale);
+            
+            return (isVisible && (
+              <button
+                key={spot.id}
+                onClick={() => setSelectedSpot(spot)}
+                className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-500 z-30"
+                style={{ left: `${spot.x_coord}%`, top: `${spot.y_coord}%`, transform: `translate(-50%, -50%) scale(${pinScale})` }}
+              >
+                <div className="flex flex-col items-center group">
+                  <div className={`w-5 h-5 rounded-full border-2 transition-all shadow-lg flex items-center justify-center bg-white border-green-800 group-hover:scale-125`}>
+                    <div className="w-2 h-2 bg-green-800 rounded-full" />
+                  </div>
+                  <div className="mt-1.5 px-2 py-0.5 bg-white/90 backdrop-blur-sm rounded shadow-sm border border-white/50">
+                    <span className="text-[10px] font-black text-green-950 whitespace-nowrap tracking-tighter uppercase">
+                      {spot.spot_name}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          )}
+        </div>
       </div>
 
-      <main className="flex-1 pb-32">
-        {/* 3. Hero Image */}
-        <div className="relative h-64 overflow-hidden">
-          <img src={current.img} alt={current.name} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-6 left-6 text-white">
-            <h2 className="text-3xl font-black mb-1">{current.name}</h2>
-            <p className="text-sm font-medium opacity-90">{current.tagline}</p>
+      {/* 2. 상단 지역 선택 네비게이터 (Glassmorphism) */}
+      <nav className="absolute top-6 inset-x-0 mx-auto w-[92%] max-w-xl z-50">
+        <div className="bg-white/60 backdrop-blur-xl border border-white/40 shadow-2xl rounded-full px-4 py-2 flex items-center justify-between">
+          <button onClick={onBack} className="p-2 hover:bg-white/50 rounded-full transition-colors"><ChevronLeft size={20}/></button>
+          <div className="flex gap-1 overflow-x-auto no-scrollbar mx-2">
+            {Object.entries(regionConfigs).map(([id, config]) => (
+              <button key={id} onClick={() => { setActiveRegion(Number(id)); setSelectedSpot(null); }}
+                className={`px-4 py-2 rounded-full text-[11px] font-black transition-all ${activeRegion === Number(id) ? 'bg-green-900 text-white shadow-lg scale-105' : 'text-gray-400 hover:text-green-800'}`}>
+                {config.name}
+              </button>
+            ))}
+          </div>
+          <div className="w-10" /> {/* 밸런스용 여백 */}
+        </div>
+      </nav>
+
+      {/* 3. 플로팅 정보 카드 */}
+      <div className={`absolute transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] z-[100] 
+        ${isMobile 
+          ? `bottom-0 inset-x-0 w-full ${selectedSpot ? 'translate-y-0' : 'translate-y-full'}` 
+          : `top-1/2 -translate-y-1/2 right-10 w-96 ${selectedSpot ? 'translate-x-0 opacity-100' : 'translate-x-20 opacity-0 pointer-events-none'}`}`}>
+        
+        {selectedSpot && (
+          <div className="bg-white/80 backdrop-blur-3xl border border-white shadow-[0_32px_64px_rgba(0,0,0,0.1)] rounded-[3rem] p-10 relative">
+            <button onClick={() => setSelectedSpot(null)} className="absolute top-8 right-8 p-2 bg-gray-100/50 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"><X size={20}/></button>
+            <div className="mb-6 inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase tracking-widest">
+              <MapPin size={12} /> {regionConfigs[selectedSpot.region_id]?.name}
+            </div>
+            <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tighter">{selectedSpot.spot_name}</h2>
+            <p className="text-[15px] text-gray-500 font-medium leading-relaxed mb-10 italic">"{selectedSpot.spot_name}에서 잊지 못할 몽골의 순간을 기록하세요."</p>
+            
+            <div className="bg-sky-50/50 p-6 rounded-[2rem] border border-sky-100 mb-10">
+                <div className="flex items-center gap-3 mb-2 text-sky-600">
+                    <Sparkles size={18} /><span className="text-[11px] font-black uppercase tracking-widest">Travel Tip</span>
+                </div>
+                <p className="text-[13px] font-bold text-sky-900 leading-snug">이 지역은 밤하늘의 은하수가 가장 아름답게 보이는 명소입니다.</p>
+            </div>
+
+            <button onClick={onStartBuilder} className="w-full py-5 bg-green-900 text-white rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
+              이 장소 포함하기 <ArrowRight size={22} />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 안내 배지 */}
+      {!selectedSpot && (
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-40 animate-bounce">
+          <div className="bg-white/50 backdrop-blur-md px-6 py-3 rounded-full border border-white shadow-lg flex items-center gap-3">
+            <MousePointer2 size={16} className="text-green-900" />
+            <span className="text-[11px] font-black text-green-900 uppercase tracking-widest">지도를 탐험하고 스팟을 발견하세요</span>
           </div>
         </div>
-
-        {/* 4. Spots List */}
-        <section className="px-6 py-8 space-y-10">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <MapPin size={14} /> 주요 방문 스팟
-          </h3>
-          
-          {current.spots.map((spot, idx) => (
-            <div key={idx} className="relative pl-6 border-l-2 border-gray-50">
-              <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-gmg-camel" />
-              <h4 className="text-lg font-bold text-gray-800 mb-2">{spot.name}</h4>
-              <p className="text-sm text-gray-500 leading-relaxed mb-3">{spot.desc}</p>
-              <div className="bg-orange-50 p-3 rounded-xl inline-flex items-center gap-2">
-                <Sparkles size={12} className="text-gmg-camel" />
-                <span className="text-[11px] font-bold text-gmg-camel">Tip: {spot.tip}</span>
-              </div>
-            </div>
-          ))}
-        </section>
-      </main>
-
-      {/* 5. Bottom CTA (텍스트 고정: 나만의 일정표 만들기) */}
-      <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-50">
-        <button 
-          onClick={onStartBuilder} 
-          className="w-full py-5 bg-gmg-camel text-white rounded-2xl font-black text-lg shadow-xl shadow-orange-200/50 flex items-center justify-center gap-2 active:scale-95 transition-all"
-        >
-          나만의 일정표 만들기 <ArrowRight size={20} />
-        </button>
-      </footer>
+      )}
     </div>
   );
 };

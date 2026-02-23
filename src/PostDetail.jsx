@@ -6,6 +6,7 @@ import {
   Trash2 // 삭제 아이콘 추가
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { comparePassword } from './authUtils';
 
 const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -16,6 +17,7 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inputUserId, setInputUserId] = useState('');
   const [inputPassword, setInputPassword] = useState('');
   const [reportReason, setReportReason] = useState('');
 
@@ -93,14 +95,41 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
     }
   };
 
-  const handleEditConfirm = () => {
-    if (String(inputPassword) === String(post.password)) {
+  const handleEditConfirm = async () => {
+    const userId = inputUserId.trim();
+    if (!userId || !inputPassword) {
+      alert('아이디와 비밀번호를 모두 입력하세요.');
+      return;
+    }
+    try {
+      const { data: user, error } = await supabase
+        .from('travel_user')
+        .select('user_no, user_pw')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!user) {
+        alert('아이디 또는 비밀번호가 일치하지 않습니다.');
+        setInputPassword('');
+        return;
+      }
+      if (Number(post.travel_user_id) !== Number(user.user_no)) {
+        alert('이 게시글의 작성자만 수정할 수 있습니다.');
+        setInputPassword('');
+        return;
+      }
+      if (!comparePassword(inputPassword, user.user_pw)) {
+        alert('아이디 또는 비밀번호가 일치하지 않습니다.');
+        setInputPassword('');
+        return;
+      }
       setShowPasswordModal(false);
+      setInputUserId('');
       setInputPassword('');
       setIsEditing(true);
-    } else {
-      alert('비밀번호가 일치하지 않습니다.');
-      setInputPassword('');
+    } catch (e) {
+      console.error(e);
+      alert('확인 중 오류가 발생했습니다.');
     }
   };
 
@@ -553,9 +582,12 @@ const PostDetail = ({ post, onBack, onUpdateSuccess }) => {
             <div className="text-center space-y-2">
               <div className="w-12 h-12 bg-orange-50 text-gmg-camel rounded-2xl flex items-center justify-center mx-auto mb-4"><Lock size={24}/></div>
               <h3 className="text-lg font-black text-gray-800">편집 권한 확인</h3>
-              <p className="text-xs text-gray-400 font-bold">비밀번호 4자리를 입력하세요.</p>
+              <p className="text-xs text-gray-400 font-bold">게시글 작성 시 사용한 아이디와 비밀번호를 입력하세요.</p>
             </div>
-            <input type="password" maxLength={4} autoFocus className="w-full bg-gray-50 border-none rounded-xl p-4 text-center text-2xl font-black tracking-[1rem] outline-none focus:ring-2 focus:ring-gmg-camel" value={inputPassword} onChange={(e) => setInputPassword(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && handleEditConfirm()}/>
+            <div className="space-y-3">
+              <input type="text" placeholder="아이디" autoComplete="username" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={inputUserId} onChange={(e) => setInputUserId(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleEditConfirm()} />
+              <input type="password" placeholder="비밀번호" autoComplete="current-password" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={inputPassword} onChange={(e) => setInputPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleEditConfirm()} />
+            </div>
             <div className="flex gap-2">
               <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-4 bg-gray-100 text-gray-400 rounded-xl font-black text-sm">취소</button>
               <button onClick={handleEditConfirm} className="flex-[2] py-4 bg-gmg-camel text-white rounded-xl font-black text-sm">확인</button>

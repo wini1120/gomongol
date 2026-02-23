@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ChevronLeft, MessageCircle, Users, Calendar, 
   Hash, Plus, Clock, Home, Compass, MessageSquareText,
-  Search, ChevronDown, Filter, ChevronRight, RotateCcw
+  Search, ChevronDown, Filter, ChevronRight, RotateCcw, User, Lock, X
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { comparePassword } from './authUtils';
+
+const AGE_ORDER = ['20대', '30대', '40대', '50대', '60대 이상', '나이 무관'];
 
 const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
   const [posts, setPosts] = useState([]);
@@ -16,7 +19,13 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGender, setSelectedGender] = useState('전체');
   const [selectedAge, setSelectedAge] = useState('전체');
-  const [selectedRegion, setSelectedRegion] = useState('전체');
+  const [selectedRegions, setSelectedRegions] = useState([]); // 다중 선택
+  const [myPostsUserId, setMyPostsUserId] = useState(null); // 내 게시글 모드일 때 travel_user.user_no
+  const [showMyPostsModal, setShowMyPostsModal] = useState(false);
+  const [myPostsIdInput, setMyPostsIdInput] = useState('');
+  const [myPostsPwInput, setMyPostsPwInput] = useState('');
+  const [myPostsModalError, setMyPostsModalError] = useState('');
+  const [myPostsChecking, setMyPostsChecking] = useState(false);
 
   // --- 페이지네이션 상태 ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,15 +53,21 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     setSearchQuery('');
     setSelectedGender('전체');
     setSelectedAge('전체');
-    setSelectedRegion('전체');
+    setSelectedRegions([]);
+    setMyPostsUserId(null);
     setCurrentPage(1);
+  };
+
+  const toggleRegion = (id) => {
+    setSelectedRegions(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
   };
 
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const schedulesSelector = selectedRegion !== '전체' 
-        ? `schedules!posts_schedule_id_fkey!inner ( * )` 
+      const hasRegionFilter = selectedRegions.length > 0;
+      const schedulesSelector = hasRegionFilter
+        ? `schedules!posts_schedule_id_fkey!inner ( * )`
         : `schedules!posts_schedule_id_fkey ( * )`;
 
       let query = supabase
@@ -62,6 +77,10 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
           ${schedulesSelector}
         `, { count: 'exact' })
         .eq('is_delete', 'X');
+
+      if (myPostsUserId != null) {
+        query = query.eq('travel_user_id', myPostsUserId);
+      }
 
       if (searchQuery) {
         query = query.ilike(searchType, `%${searchQuery}%`);
@@ -76,8 +95,9 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
         query = query.or(`target_ages.cs.{"${selectedAge}"},target_ages.cs.{"나이 무관"}`);
       }
 
-      if (selectedRegion !== '전체') {
-        query = query.filter('schedules.regions', 'cs', `{${selectedRegion}}`);
+      if (hasRegionFilter && selectedRegions.length > 0) {
+        const regionIds = selectedRegions.map(r => Number(r));
+        query = query.overlaps('schedules.regions', regionIds);
       }
 
       const from = (currentPage - 1) * itemsPerPage;
@@ -95,7 +115,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchType, searchQuery, selectedGender, selectedAge, selectedRegion, currentPage]);
+  }, [searchType, searchQuery, selectedGender, selectedAge, selectedRegions, currentPage, myPostsUserId]);
 
   useEffect(() => {
     fetchPosts();
@@ -103,9 +123,42 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedGender, selectedAge, selectedRegion]);
+  }, [searchQuery, selectedGender, selectedAge, selectedRegions, myPostsUserId]);
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const handleMyPostsSubmit = async () => {
+    const id = myPostsIdInput.trim();
+    const pw = myPostsPwInput;
+    if (!id || !pw) {
+      setMyPostsModalError('아이디와 비밀번호를 입력하세요.');
+      return;
+    }
+    setMyPostsChecking(true);
+    setMyPostsModalError('');
+    try {
+      const { data: user, error } = await supabase.from('travel_user').select('user_no, user_pw').eq('user_id', id).maybeSingle();
+      if (error) throw error;
+      if (!user) {
+        setMyPostsModalError('아이디 또는 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+      if (!comparePassword(pw, user.user_pw)) {
+        setMyPostsModalError('아이디 또는 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+      setMyPostsUserId(user.user_no);
+      setShowMyPostsModal(false);
+      setMyPostsIdInput('');
+      setMyPostsPwInput('');
+      setCurrentPage(1);
+    } catch (e) {
+      console.error(e);
+      setMyPostsModalError('확인 중 오류가 발생했습니다.');
+    } finally {
+      setMyPostsChecking(false);
+    }
+  };
 
   const getTimeAgo = (date) => {
     const start = new Date(date);
@@ -156,9 +209,14 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
               </button>
               <h1 className="text-xl lg:text-3xl font-black text-gray-800">동행 찾기 🐪</h1>
             </div>
-            <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
-              <Plus size={18} /> 동행 글올리기
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }} className="hidden lg:flex items-center gap-2 bg-white border-2 border-gmg-camel text-gmg-camel px-4 py-2.5 rounded-xl font-black text-xs hover:bg-orange-50 transition-all">
+                <User size={16} /> 내 게시글 찾기
+              </button>
+              <button onClick={onStartBuilder} className="hidden lg:flex items-center gap-2 bg-gmg-green text-white px-6 py-3 rounded-2xl font-black text-sm shadow-lg shadow-green-100 hover:scale-105 transition-all">
+                <Plus size={18} /> 동행 글올리기
+              </button>
+            </div>
           </div>
 
           <div className="px-6 pb-6 space-y-4">
@@ -187,74 +245,70 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
               </div>
             </div>
 
-            {/* 2. 필터 레이아웃 - 1행: 퀵 필터 아이콘 + 지역 + 성별 */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-                  <Filter size={12} className="text-gmg-camel" />
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Filters</span>
+            {/* 2. 필터 - 1행: 필터 아이콘 + 지역(다중) + 성별 + 연령(컴팩트) + 초기화 */}
+            <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
+                  <Filter size={11} className="text-gmg-camel" />
+                  <span className="text-[9px] font-black text-gray-400 uppercase">Filters</span>
                 </div>
-                
-                <select 
-                  value={selectedRegion}
-                  onChange={(e) => setSelectedRegion(e.target.value)}
-                  className={`h-9 shrink-0 px-3 py-1 rounded-xl text-[11px] font-black border transition-all outline-none ${selectedRegion !== '전체' ? 'bg-gmg-camel text-white border-gmg-camel shadow-sm' : 'bg-white text-gray-500 border-gray-100'}`}
-                >
-                  <option value="전체">모든 지역</option>
-                  {Object.entries(regionNames).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </select>
 
-                <div className="flex gap-1 shrink-0 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
+                {/* 지역 다중 선택 */}
+                <div className="flex flex-wrap gap-1 shrink-0">
+                  {Object.entries(regionNames).map(([id, name]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => toggleRegion(id)}
+                      className={`h-7 px-2.5 rounded-lg text-[10px] font-black border transition-all ${selectedRegions.includes(id) ? 'bg-gmg-camel text-white border-gmg-camel' : 'bg-white text-gray-500 border-gray-100 hover:bg-gray-50'}`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-1 shrink-0 bg-white p-1 rounded-lg border border-gray-100">
                   {genderOptions.map(opt => (
-                    <button 
+                    <button
                       key={opt}
+                      type="button"
                       onClick={() => setSelectedGender(opt)}
-                      className={`h-7 px-4 rounded-lg text-[10px] font-black transition-all ${selectedGender === opt ? 'bg-gmg-green text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}
+                      className={`h-6 px-2.5 rounded-md text-[9px] font-black transition-all ${selectedGender === opt ? 'bg-gmg-green text-white' : 'text-gray-400 hover:bg-gray-50'}`}
                     >
                       {opt}
                     </button>
                   ))}
                 </div>
-            </div>
 
-            {/* 3. 필터 레이아웃 - 2행: 연령대 + 초기화 */}
-            <div className="flex items-center gap-2">
-                {/* PC 버전: 버튼 그룹 */}
-                <div className="hidden lg:flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-100 shadow-sm">
-                    {ageOptions.map(opt => (
-                        <button 
-                        key={opt}
-                        onClick={() => setSelectedAge(opt)}
-                        className={`h-7 px-4 rounded-lg text-[10px] font-black transition-all ${selectedAge === opt ? 'bg-gmg-camel text-white shadow-sm' : 'text-gray-400 hover:bg-gray-50'}`}
-                        >
-                        {opt}
-                        </button>
-                    ))}
-                </div>
-
-                {/* 모바일 버전: 드롭다운 */}
-                <div className="lg:hidden relative flex-1">
-                    <select 
-                    value={selectedAge}
-                    onChange={(e) => setSelectedAge(e.target.value)}
-                    className={`w-full h-11 px-4 rounded-2xl text-[12px] font-black border transition-all appearance-none outline-none ${selectedAge !== '전체' ? 'bg-orange-50 border-gmg-camel text-gmg-camel' : 'bg-white border-gray-100 text-gray-500'}`}
+                {/* 연령 컴팩트: 한 줄 작은 칩 */}
+                <div className="flex flex-wrap gap-1 shrink-0 bg-white p-1 rounded-lg border border-gray-100">
+                  {ageOptions.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setSelectedAge(opt)}
+                      className={`h-6 px-2 rounded-md text-[9px] font-black transition-all whitespace-nowrap ${selectedAge === opt ? 'bg-gmg-camel text-white' : 'text-gray-400 hover:bg-gray-50'}`}
                     >
-                    <option value="전체">연령대 선택</option>
-                    {ageOptions.slice(1).map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      {opt === '전체' ? '연령전체' : opt}
+                    </button>
+                  ))}
                 </div>
 
-                <button 
-                    onClick={handleResetFilters}
-                    className="h-11 lg:h-9 px-4 flex items-center gap-1.5 shrink-0 bg-white border border-dashed border-gray-200 rounded-2xl lg:rounded-xl text-gray-400 text-[10px] font-black active:scale-95 transition-all hover:bg-gray-50"
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="h-7 px-3 flex items-center gap-1 shrink-0 bg-white border border-dashed border-gray-200 rounded-lg text-gray-400 text-[9px] font-black hover:bg-gray-50"
                 >
-                    <RotateCcw size={12} /> <span>초기화</span>
+                  <RotateCcw size={10} /> 초기화
                 </button>
-            </div>
+              </div>
+
+            {/* 내 게시글 모드 배너 */}
+            {myPostsUserId != null && (
+              <div className="flex items-center justify-between mt-2 py-2 px-3 bg-orange-50 rounded-xl border border-orange-100">
+                <span className="text-xs font-black text-gmg-camel">내 게시글만 보는 중</span>
+                <button type="button" onClick={() => { setMyPostsUserId(null); setCurrentPage(1); }} className="text-[10px] font-black text-gray-500 hover:text-gray-700 underline">전체 보기</button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -295,7 +349,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
                         
                         <div className="flex flex-wrap gap-1.5 mb-6">
                           <span className="bg-gray-100 text-gray-500 px-2.5 py-1 rounded-lg text-[9px] font-black border border-gray-200/50">{post.target_gender === '무관' ? '성별무관' : post.target_gender}</span>
-                          {isAllAges ? <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">나이 무관</span> : post.target_ages?.map(age => <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">{age}</span>)}
+                          {isAllAges ? <span className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">나이 무관</span> : [...(post.target_ages || [])].sort((a, b) => AGE_ORDER.indexOf(a) - AGE_ORDER.indexOf(b)).map(age => <span key={age} className="bg-orange-50 text-gmg-camel px-2.5 py-1 rounded-lg text-[9px] font-black border border-orange-100">{age}</span>)}
                         </div>
 
                         <div className="mt-auto space-y-4 pt-4 border-t border-gray-50">
@@ -356,6 +410,36 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
       </main>
 
       <button onClick={onStartBuilder} className="fixed bottom-8 right-8 lg:hidden w-14 h-14 bg-gmg-green text-white rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-all z-50 hover:scale-110"><Plus size={28} /></button>
+
+      {/* 내 게시글 찾기 모달 */}
+      {showMyPostsModal && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => !myPostsChecking && setShowMyPostsModal(false)}>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-black text-gray-800">내 게시글 찾기</h3>
+              <button type="button" onClick={() => !myPostsChecking && setShowMyPostsModal(false)} className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400"><X size={20} /></button>
+            </div>
+            <p className="text-xs text-gray-500 font-bold mb-4">게시글 작성 시 사용한 아이디와 비밀번호를 입력하세요.</p>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">아이디</label>
+                <input type="text" placeholder="아이디" value={myPostsIdInput} onChange={e => setMyPostsIdInput(e.target.value)} className="w-full h-11 px-4 rounded-xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">비밀번호</label>
+                <input type="password" placeholder="비밀번호" value={myPostsPwInput} onChange={e => setMyPostsPwInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleMyPostsSubmit()} className="w-full h-11 px-4 rounded-xl border border-gray-200 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" />
+              </div>
+            </div>
+            {myPostsModalError && <p className="text-xs font-black text-red-500 mb-3">{myPostsModalError}</p>}
+            <button type="button" onClick={handleMyPostsSubmit} disabled={myPostsChecking} className="w-full h-12 bg-gmg-camel text-white rounded-xl font-black text-sm disabled:opacity-50">
+              {myPostsChecking ? '확인 중...' : '내 게시글 보기'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 모바일: 내 게시글 찾기 버튼 */}
+      <button type="button" onClick={() => { setShowMyPostsModal(true); setMyPostsModalError(''); setMyPostsIdInput(''); setMyPostsPwInput(''); }} className="lg:hidden fixed bottom-24 right-8 w-12 h-12 bg-white border-2 border-gmg-camel text-gmg-camel rounded-full shadow-xl flex items-center justify-center z-50 hover:bg-orange-50"><User size={22} /></button>
     </div>
   );
 };
