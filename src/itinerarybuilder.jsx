@@ -326,7 +326,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
             <p className="text-xs text-gray-500 font-medium mb-4 text-center">아래 카드를 이미지로 저장한 뒤 여행사에 전송하세요</p>
             <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-6 sm:p-7 rounded-2xl border border-gray-200 shadow-sm relative overflow-visible text-left">
               <div className="flex items-center gap-2 mb-6">
-                  <Compass size={20} className="text-gmg-camel" />
+                  <img src="/gomongol_logo.png" alt="Go몽골" className="h-7 w-auto object-contain" />
                   <span className="text-xl font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
               </div>
               <h3 className="text-2xl font-black text-gray-900 leading-tight mb-8">여행자님의<br/><span className="text-gmg-camel font-black">몽골 여행 위시리스트</span></h3>

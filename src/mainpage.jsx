@@ -219,7 +219,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
       <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-100 sticky top-0 h-screen p-8 justify-between z-50">
         <div className="space-y-10">
           <div className="flex items-center gap-2 text-gmg-camel">
-            <Compass size={32} />
+            <img src="/gomongol_logo.png" alt="Go몽골" className="h-9 w-auto object-contain" />
             <span className="text-2xl font-black italic tracking-tighter uppercase font-sans">GoMongol</span>
           </div>
           <nav className="space-y-2">
@@ -245,7 +245,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
         
         {/* 모바일 헤더 (Guest 전용) */}
         <header className="lg:hidden flex justify-center items-center px-6 py-8 bg-white border-b border-gray-100 sticky top-0 z-40">
-          <h1 className="text-2xl font-black text-gmg-camel tracking-tighter cursor-default">Go몽골</h1>
+          <img src="/gomongol_logo.png" alt="Go몽골" className="h-8 w-auto object-contain" />
         </header>
 
         <div className="max-w-4xl mx-auto w-full px-6 py-10 lg:py-20">

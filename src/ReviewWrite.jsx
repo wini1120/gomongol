@@ -144,6 +144,7 @@ const ReviewWrite = ({ onBack, onSuccess }) => {
           <button type="button" onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <ChevronLeft size={24} />
           </button>
+          <img src="/gomongol_logo.png" alt="Go몽골" className="h-6 w-auto object-contain hidden sm:block" />
           <h1 className="text-xl font-black text-gray-800">여행 후기 작성</h1>
         </div>
       </header>
