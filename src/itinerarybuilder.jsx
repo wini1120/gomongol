@@ -13,8 +13,8 @@ const AGENCY_COLORS = ['bg-orange-50', 'bg-blue-50', 'bg-green-50', 'bg-amber-50
 
 const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const [step, setStep] = useState(1);
-  const contentRef = useRef(null);   // 일정표 이미지용
-  const memoExportRef = useRef(null); // 주관식 요청사항 이미지용
+  const contentRef = useRef(null);   // 일정표+주관식 한 이미지용
+  const consultNoteTextareaRef = useRef(null);
   
   const [isSaving, setIsSaving] = useState(false);
   const [savedSchedule, setSavedSchedule] = useState(null);
@@ -69,6 +69,15 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => (step === 1 ? onBack() : setStep(prev => prev - 1));
 
+  // 견적 상담 메모 textarea 자동 높이 (내용에 따라 박스 확장)
+  useEffect(() => {
+    if (step !== 3) return;
+    const el = consultNoteTextareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(96, el.scrollHeight)}px`;
+  }, [consultNote, step]);
+
   // [수정] 지역 토글 시 숫자 ID 사용
   const toggleRegion = (regionId) => {
     setFormData(prev => {
@@ -108,61 +117,24 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
 
   const handleExportImage = async () => {
     if (contentRef.current === null) return;
+    const hideNodes = contentRef.current.querySelectorAll('[data-export-hide]');
+    hideNodes.forEach((el) => { el.style.display = 'none'; });
     const dataUrl = await toPng(contentRef.current, {
       cacheBust: true,
       backgroundColor: '#ffffff',
+      pixelRatio: 2,
       style: { padding: '40px', borderRadius: '0px' }
     });
+    hideNodes.forEach((el) => { el.style.display = ''; });
     const link = document.createElement('a');
     link.download = `GoMongol_위시리스트.png`;
     link.href = dataUrl;
     link.click();
   };
 
-  const handleExportMemoImage = async () => {
-    const el = memoExportRef.current;
-    if (!el) return;
-    const orig = {
-      position: el.style.position,
-      left: el.style.left,
-      top: el.style.top,
-      opacity: el.style.opacity,
-      zIndex: el.style.zIndex,
-      pointerEvents: el.style.pointerEvents
-    };
-    try {
-      el.style.position = 'fixed';
-      el.style.left = '0';
-      el.style.top = '0';
-      el.style.opacity = '0.01';
-      el.style.zIndex = '-1';
-      el.style.pointerEvents = 'none';
-      await new Promise(r => requestAnimationFrame(r));
-      const dataUrl = await toPng(el, {
-        cacheBust: true,
-        backgroundColor: '#ffffff',
-        style: { padding: '32px', borderRadius: '0px' }
-      });
-      const link = document.createElement('a');
-      link.download = `GoMongol_주관식요청사항.png`;
-      link.href = dataUrl;
-      link.click();
-    } finally {
-      el.style.position = orig.position;
-      el.style.left = orig.left;
-      el.style.top = orig.top;
-      el.style.opacity = orig.opacity;
-      el.style.zIndex = orig.zIndex;
-      el.style.pointerEvents = orig.pointerEvents;
-    }
-  };
-
   const handleConsulting = async () => {
     try {
       await handleExportImage();
-      if (consultNote.trim()) {
-        await handleExportMemoImage();
-      }
       setStep(4);
     } catch (err) {
       console.error('이미지 저장 실패:', err);
@@ -350,68 +322,59 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
         )}
 
         {step === 3 && (
-          <div className="pr-1 overflow-visible space-y-6">
-            {/* 일정표 이미지용: 기본정보 + 투어정보만 */}
-            <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm relative overflow-visible text-left">
-              <div className="flex items-center gap-2 mb-6 opacity-80">
+          <div className="pr-1 overflow-visible">
+            <p className="text-xs text-gray-500 font-medium mb-4 text-center">아래 카드를 이미지로 저장한 뒤 여행사에 전송하세요</p>
+            <div ref={contentRef} className="animate-in fade-in zoom-in-95 duration-500 bg-white p-6 sm:p-7 rounded-2xl border border-gray-200 shadow-sm relative overflow-visible text-left">
+              <div className="flex items-center gap-2 mb-6">
                   <Compass size={20} className="text-gmg-camel" />
                   <span className="text-xl font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
               </div>
-              <h3 className="text-2xl font-black text-gray-800 leading-tight mb-8">여행자님의<br/><span className="text-gmg-camel font-black">몽골 여행 위시리스트</span></h3>
+              <h3 className="text-2xl font-black text-gray-900 leading-tight mb-8">여행자님의<br/><span className="text-gmg-camel font-black">몽골 여행 위시리스트</span></h3>
               <section className="mb-8 text-left">
-                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">기본 정보</h4>
-                  <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 flex justify-around items-center">
-                      <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black">{formData.startDate.replace(/-/g, '.')}</span></div>
-                      <div className="w-px h-8 bg-gray-200" />
-                      <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">인원</span><span className="text-sm font-black">{formData.people}명</span></div>
-                      <div className="w-px h-8 bg-gray-200" />
-                      <div className="text-center"><span className="block text-[10px] text-gray-400 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black">{(formData.nights || 1)}박 {(formData.nights || 1) + 1}일</span></div>
+                  <h4 className="text-xs font-black text-gray-600 mb-3 uppercase tracking-widest flex items-center gap-1">기본 정보</h4>
+                  <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 flex justify-around items-center">
+                      <div className="text-center"><span className="block text-[10px] text-gray-600 font-bold mb-1 uppercase">출발일</span><span className="text-sm font-black text-gray-900">{formData.startDate.replace(/-/g, '.')}</span></div>
+                      <div className="w-px h-8 bg-gray-300" />
+                      <div className="text-center"><span className="block text-[10px] text-gray-600 font-bold mb-1 uppercase">인원</span><span className="text-sm font-black text-gray-900">{formData.people}명</span></div>
+                      <div className="w-px h-8 bg-gray-300" />
+                      <div className="text-center"><span className="block text-[10px] text-gray-600 font-bold mb-1 uppercase">기간</span><span className="text-sm font-black text-gray-900">{(formData.nights || 1)}박 {(formData.nights || 1) + 1}일</span></div>
                   </div>
               </section>
               <section className="text-left">
-                  <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-1">투어 정보</h4>
+                  <h4 className="text-xs font-black text-gray-600 mb-3 uppercase tracking-widest flex items-center gap-1">투어 정보</h4>
                   <div className="space-y-4">
                       {regionData.filter(r => formData.selectedRegions.includes(r.id)).map(region => (
-                          <div key={region.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 relative">
-                              <h4 className="text-base font-black text-gray-800 flex items-center gap-2 mb-4"><span>{region.icon}</span> {region.name}</h4>
+                          <div key={region.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 relative">
+                              <h4 className="text-base font-black text-gray-900 flex items-center gap-2 mb-4"><span>{region.icon}</span> {region.name}</h4>
                               <div className="flex flex-wrap gap-2">
                                   {region.spots.filter(s => formData.spots[String(region.id)]?.includes(s)).map(spot => (
-                                      <span key={spot} className="bg-gmg-bg text-gmg-green px-3 py-1.5 rounded-xl text-[11px] font-bold border border-gmg-green/10 flex items-center gap-1"><Hash size={10} className="opacity-50" /> {spot}</span>
+                                      <span key={spot} className="inline-flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-lg text-xs font-bold border border-gray-300 bg-gmg-bg text-gmg-green whitespace-nowrap">
+                                          <Hash size={12} className="opacity-70 shrink-0" /> {spot}
+                                      </span>
                                   ))}
                               </div>
                           </div>
                       ))}
                   </div>
               </section>
-            </div>
-
-            {/* 입력용: 견적 상담 시 전달 메모 */}
-            <div className="animate-in fade-in duration-300 bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm text-left">
-              <h4 className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest flex items-center gap-1">견적 상담 시 전달 메모</h4>
-              <p className="text-[10px] text-gray-400 font-bold mb-2">작성 시 주관식 요청사항 이미지로 따로 저장됩니다</p>
-              <textarea
-                value={consultNote}
-                onChange={(e) => setConsultNote(e.target.value)}
-                placeholder="예: 특별히 가보고 싶은 곳, 식사 선호, 이동 편의 등 여행사에 전하고 싶은 말을 적어주세요"
-                maxLength={500}
-                className="w-full h-24 p-4 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-medium outline-none focus:ring-2 focus:ring-gmg-camel resize-none"
-              />
-              <p className="text-right text-[10px] text-gray-400 font-bold mt-1">{consultNote.length}/500</p>
-            </div>
-
-            {/* 주관식 요청사항 이미지용 (화면 밖 렌더, export 시 사용) */}
-            <div
-              ref={memoExportRef}
-              className="bg-white p-7 rounded-[2.5rem] border border-gray-100 shadow-sm text-left w-[400px] absolute -left-[9999px] top-0"
-            >
-              <div className="flex items-center gap-2 mb-4 opacity-80">
-                <Compass size={18} className="text-gmg-camel" />
-                <span className="text-lg font-black text-gmg-camel italic tracking-tighter uppercase">GoMongol</span>
-              </div>
-              <h4 className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest">주관식 요청사항</h4>
-              <div className="bg-gray-50 p-5 rounded-[1.5rem] border border-gray-100 min-h-[80px]">
-                <p className="text-sm font-bold text-gray-800 whitespace-pre-wrap leading-relaxed">{consultNote.trim() || '(작성 내용 없음)'}</p>
-              </div>
+              <section className="mt-6 pt-6 border-t border-gray-200 text-left">
+                  <div className="flex items-baseline justify-between gap-2 mb-2 pl-4">
+                    <h4 className="text-xs font-black text-gray-600 uppercase tracking-widest">견적 상담 시 전달 메모</h4>
+                    <span className="text-[10px] text-gray-400 font-medium" data-export-hide>선택 · 이미지에 포함</span>
+                  </div>
+                  <textarea
+                    ref={consultNoteTextareaRef}
+                    value={consultNote}
+                    onChange={(e) => setConsultNote(e.target.value)}
+                    placeholder="가보고 싶은 곳, 식사·이동 선호 등 여행사에 전할 말을 적어주세요 (최대 500자)"
+                    maxLength={500}
+                    rows={3}
+                    className="w-full min-h-[88px] p-4 rounded-xl border border-gray-200 bg-gray-50/80 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gmg-camel focus:ring-2 focus:ring-gmg-camel/20 resize-none overflow-hidden transition-all"
+                  />
+                  <div className="flex justify-end mt-1.5" data-export-hide>
+                    <span className="text-[10px] font-medium text-gray-400">{consultNote.length}/500</span>
+                  </div>
+              </section>
             </div>
           </div>
         )}
@@ -423,7 +386,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
               <div className="space-y-1">
                 <p className="text-sm font-black text-gray-800">이미지 저장이 완료되었습니다!</p>
                 <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
-                  {consultNote.trim() ? '위시리스트 이미지와 주관식 요청사항 이미지가 다운로드되었습니다.' : '위시리스트 이미지가 다운로드되었습니다.'} 원하시는 여행사를 선택한 후 전송해 주세요.
+                  위시리스트 이미지(일정·주관식 메모 포함)가 다운로드되었습니다. 원하시는 여행사를 선택한 후 전송해 주세요.
                 </p>
               </div>
             </div>
