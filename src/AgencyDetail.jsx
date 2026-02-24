@@ -73,8 +73,12 @@ const AgencyDetail = ({ agency, onBack, onReviewClick }) => {
       <main className="max-w-3xl mx-auto p-6 pb-24">
         <section className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-sm border border-gray-100 mb-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center shrink-0">
-              <Building2 size={24} className="text-gmg-camel" />
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden ${agency?.company_logo_url ? 'bg-white border border-gray-100' : 'bg-orange-50'}`}>
+              {agency?.company_logo_url ? (
+                <img src={agency.company_logo_url} alt="" className="w-full h-full object-contain" />
+              ) : (
+                <Building2 size={24} className="text-gmg-camel" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">

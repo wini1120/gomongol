@@ -17,6 +17,8 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
     company_kakao_link: '',
     company_email: ''
   });
+  const [agencyLogoFile, setAgencyLogoFile] = useState(null);
+  const [agencyLogoPreview, setAgencyLogoPreview] = useState(null);
   const [agencySubmitting, setAgencySubmitting] = useState(false);
   const [agencyError, setAgencyError] = useState('');
   const [agencySuccess, setAgencySuccess] = useState(false);
@@ -24,7 +26,7 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
 
   useEffect(() => {
     const fetchAgencies = async () => {
-      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link').eq('status', 'ACTIVE').order('user_no');
+      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link, company_logo_url').eq('status', 'ACTIVE').order('user_no');
       setActiveAgencies(data || []);
     };
     fetchAgencies();
@@ -74,16 +76,28 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
                     setAgencyError('');
                     setAgencySubmitting(true);
                     try {
+                      let companyLogoUrl = null;
+                      if (agencyLogoFile) {
+                        const ext = agencyLogoFile.name.split('.').pop()?.toLowerCase() || 'png';
+                        const path = `${agencyForm.user_id.trim()}-${Date.now()}.${ext}`;
+                        const { error: uploadErr } = await supabase.storage.from('company-logo').upload(path, agencyLogoFile, { upsert: false });
+                        if (uploadErr) throw uploadErr;
+                        const { data: urlData } = supabase.storage.from('company-logo').getPublicUrl(path);
+                        companyLogoUrl = urlData?.publicUrl ?? null;
+                      }
                       const hashedPw = hashPassword(agencyForm.user_pw);
                       const { error } = await supabase.from('agency_user').insert([{
                         company_name: agencyForm.company_name.trim(),
                         user_id: agencyForm.user_id.trim(),
                         user_pw: hashedPw,
                         company_email: (agencyForm.company_email || '').trim() || '',
-                        company_kakao_link: (agencyForm.company_kakao_link || '').trim() || null
+                        company_kakao_link: (agencyForm.company_kakao_link || '').trim() || null,
+                        company_logo_url: companyLogoUrl
                       }]);
                       if (error) throw error;
                       setAgencyForm({ company_name: '', user_id: '', user_pw: '', company_kakao_link: '', company_email: '' });
+                      setAgencyLogoFile(null);
+                      setAgencyLogoPreview(null);
                       setAgencyError('');
                       setAgencySuccess(true);
                       setTimeout(() => {
@@ -140,6 +154,46 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
                     value={agencyForm.company_email}
                     onChange={(e) => setAgencyForm(f => ({ ...f, company_email: e.target.value }))}
                   />
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5">회사 로고 (선택)</label>
+                    <div className="flex items-center gap-3">
+                      <label className="shrink-0 w-14 h-14 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 cursor-pointer hover:border-gmg-camel transition-colors">
+                        {agencyLogoPreview ? (
+                          <img src={agencyLogoPreview} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <Building2 size={20} className="text-gray-400" />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setAgencyLogoFile(file);
+                              setAgencyLogoPreview(URL.createObjectURL(file));
+                            } else {
+                              setAgencyLogoFile(null);
+                              if (agencyLogoPreview) URL.revokeObjectURL(agencyLogoPreview);
+                              setAgencyLogoPreview(null);
+                            }
+                          }}
+                        />
+                      </label>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-500">이미지 선택 시 가입 후 로고로 표시됩니다.</p>
+                        {agencyLogoFile && (
+                          <button
+                            type="button"
+                            onClick={() => { setAgencyLogoFile(null); if (agencyLogoPreview) URL.revokeObjectURL(agencyLogoPreview); setAgencyLogoPreview(null); }}
+                            className="text-[10px] font-bold text-red-500 mt-0.5"
+                          >
+                            제거
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   {agencySuccess && (
                     <div className="p-4 rounded-2xl bg-green-50 border border-green-200 text-center">
                       <p className="text-sm font-black text-green-700">회원가입이 완료되었습니다.</p>
@@ -270,8 +324,12 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
                     className="bg-white p-7 lg:p-8 rounded-[2.8rem] border border-gray-50 shadow-sm transition-all flex flex-col gap-4 hover:shadow-md cursor-pointer hover:border-gmg-camel/30"
                   >
                     <div className="flex items-center gap-5">
-                      <div className={`w-14 h-14 ${AGENCY_COLORS[i % AGENCY_COLORS.length]} rounded-2xl flex items-center justify-center shrink-0`}>
-                        <Building2 size={24} className="text-gray-400" />
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden ${agency.company_logo_url ? 'bg-white border border-gray-100' : AGENCY_COLORS[i % AGENCY_COLORS.length]}`}>
+                        {agency.company_logo_url ? (
+                          <img src={agency.company_logo_url} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <Building2 size={24} className="text-gray-400" />
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">

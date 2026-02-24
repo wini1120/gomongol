@@ -9,7 +9,7 @@ import { comparePassword } from './authUtils';
 
 const AGE_ORDER = ['20대', '30대', '40대', '50대', '60대 이상', '나이 무관'];
 
-const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
+const CommunityBoard = ({ onBack, onStartBuilder, onPostClick, onGoToReviewBoard }) => {
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [regionNames, setRegionNames] = useState({});
@@ -207,7 +207,7 @@ const CommunityBoard = ({ onBack, onStartBuilder, onPostClick }) => {
             <div className="flex items-center gap-3 p-4 bg-gmg-bg text-gmg-camel rounded-2xl font-black cursor-pointer shadow-sm shadow-orange-100/50">
               <Users size={20} /> <span>동행찾기 게시판</span>
             </div>
-            <div className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
+            <div onClick={onGoToReviewBoard} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
               <MessageSquareText size={20} /> <span>여행 후기 게시판</span>
             </div>
           </nav>

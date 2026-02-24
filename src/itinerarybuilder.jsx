@@ -22,7 +22,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link').eq('status', 'ACTIVE').order('user_no');
+      const { data } = await supabase.from('agency_user').select('user_no, company_name, company_kakao_link, company_logo_url').eq('status', 'ACTIVE').order('user_no');
       setActiveAgencies(data || []);
     };
     fetch();
@@ -402,7 +402,13 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                     className="w-full bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between hover:border-gmg-camel transition-all"
                   >
                     <div className="flex items-center gap-4 text-left">
-                      <div className={`w-12 h-12 ${AGENCY_COLORS[i % AGENCY_COLORS.length]} rounded-2xl flex items-center justify-center`}><Building2 size={24} className="text-gray-300 opacity-50" /></div>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${agency.company_logo_url ? 'bg-white border border-gray-100' : AGENCY_COLORS[i % AGENCY_COLORS.length]}`}>
+                        {agency.company_logo_url ? (
+                          <img src={agency.company_logo_url} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <Building2 size={24} className="text-gray-300 opacity-50" />
+                        )}
+                      </div>
                       <div className="text-left"><h4 className="font-black text-gray-800">{agency.company_name}</h4></div>
                     </div>
                     <div className="bg-gmg-camel text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"><MessageCircle size={14} /> 상담</div>

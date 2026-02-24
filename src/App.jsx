@@ -79,7 +79,8 @@ function App() {
           key={refreshKey} // 이 키가 바뀌면 게시판이 다시 로드됩니다
           onBack={navigateToMain} 
           onStartBuilder={() => { setSelectedPost(null); setView('builder'); }} 
-          onPostClick={handlePostClick} 
+          onPostClick={handlePostClick}
+          onGoToReviewBoard={() => setView('reviewBoard')}
         />
       )}
 
@@ -98,6 +99,7 @@ function App() {
           onStartReviewWrite={() => setView('reviewWrite')}
           onReviewClick={handleReviewClick}
           onAgencyClick={handleAgencyClick}
+          onGoToCommunity={() => setView('community')}
         />
       )}
 

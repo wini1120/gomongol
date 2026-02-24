@@ -16,7 +16,7 @@ const getPhotoList = (review) => {
   return ['https://placehold.co/800x500/e2e8f0/94a3b8?text=No+Image'];
 };
 
-const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick }) => {
+const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick, onGoToCommunity }) => {
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalReview, setModalReview] = useState(null);
@@ -29,7 +29,7 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick 
         .from('travel_review')
         .select(`
           *,
-          agency_user:agency_user_id ( user_no, company_name, company_kakao_link ),
+          agency_user:agency_user_id ( user_no, company_name, company_kakao_link, company_logo_url ),
           review_photo ( image_url, sort_order )
         `)
         .eq('is_delete', 'X')
@@ -63,7 +63,7 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick 
             <div onClick={onBack} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
               <Home size={20} /> <span>홈</span>
             </div>
-            <div onClick={onBack} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
+            <div onClick={onGoToCommunity ?? onBack} className="flex items-center gap-3 p-4 text-gray-400 hover:text-gmg-camel hover:bg-orange-50/50 rounded-2xl transition-all font-bold cursor-pointer">
               <Users size={20} /> <span>동행찾기 게시판</span>
             </div>
             <div className="flex items-center gap-3 p-4 bg-gmg-bg text-gmg-camel rounded-2xl font-black cursor-pointer shadow-sm shadow-orange-100/50">

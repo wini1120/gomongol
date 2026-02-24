@@ -2,8 +2,9 @@
 -- 여행후기(travel_review) 관리용 테이블 (Supabase SQL Editor에서 실행)
 -- ============================================================
 
--- 1) 여행사 소개글 컬럼 추가 (agency_user 이미 있는 경우)
+-- 1) 여행사 소개글·로고 컬럼 추가 (agency_user 이미 있는 경우)
 ALTER TABLE agency_user ADD COLUMN IF NOT EXISTS company_intro TEXT;
+ALTER TABLE agency_user ADD COLUMN IF NOT EXISTS company_logo_url TEXT;
 
 -- 2) 여행후기 메인 테이블
 CREATE TABLE IF NOT EXISTS travel_review (

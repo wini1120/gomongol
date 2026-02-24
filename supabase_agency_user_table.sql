@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS agency_user (
   company_name         TEXT NOT NULL,           -- 회사명
   company_email        TEXT NOT NULL,           -- 회사 이메일
   company_kakao_link   TEXT,                    -- 회사 카카오톡 채널 링크 (선택)
+  company_logo_url     TEXT,                    -- 회사 로고 이미지 URL (선택, 상담 여행사 선택 등에 표시)
   status              TEXT NOT NULL DEFAULT 'RECEIVED',  -- RECEIVED(접수) | ACTIVE(활동중) | DONE(활동중단)
   created_at           TIMESTAMPTZ DEFAULT NOW()
 );
