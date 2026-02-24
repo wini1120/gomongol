@@ -9,12 +9,14 @@ import ReviewWrite from './ReviewWrite';
 import ReviewDetail from './ReviewDetail';
 import AgencyDetail from './AgencyDetail';
 import { Analytics } from "@vercel/analytics/react";
+import { X } from 'lucide-react';
 
 function App() {
   const [view, setView] = useState('main'); 
   const [selectedPost, setSelectedPost] = useState(null);
   const [selectedReview, setSelectedReview] = useState(null);
   const [selectedAgency, setSelectedAgency] = useState(null);
+  const [showExplorerPreparingModal, setShowExplorerPreparingModal] = useState(false);
   
   // 데이터 업데이트 시 목록 새로고침을 위한 '키' 상태
   const [refreshKey, setRefreshKey] = useState(0);
@@ -53,11 +55,32 @@ function App() {
       {view === 'main' && (
         <MainPage 
           onStartBuilder={() => { setSelectedPost(null); setView('builder'); }} 
-          onStartExplorer={() => setView('explorer')} 
+          onStartExplorer={() => setShowExplorerPreparingModal(true)} 
           onStartCommunity={() => setView('community')} 
           onStartReviewBoard={() => setView('reviewBoard')}
           onAgencyClick={handleAgencyClick}
         />
+      )}
+
+      {/* 몽골 둘러보기 준비 중 모달 */}
+      {showExplorerPreparingModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowExplorerPreparingModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in-95 duration-200">
+            <button onClick={() => setShowExplorerPreparingModal(false)} className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+              <X size={20} className="text-gray-400" />
+            </button>
+            <p className="text-lg font-black text-gray-800 mt-2">현재 준비 중입니다.</p>
+            <p className="text-sm text-gray-500 mt-2">몽골 둘러보기 서비스는 곧 만나보실 수 있어요.<br />조금만 기다려 주세요!</p>
+            <button
+              type="button"
+              onClick={() => setShowExplorerPreparingModal(false)}
+              className="mt-6 w-full py-3 rounded-xl bg-gmg-camel text-white font-black text-sm"
+            >
+              확인
+            </button>
+          </div>
+        </div>
       )}
 
       {view === 'builder' && (

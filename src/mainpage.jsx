@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Map, ChevronRight, Search, Building2, Star, 
-  CheckCircle, Compass, Home, MessageSquareText, Users, Globe, X, Send, BarChart3, ShieldCheck, Zap, Lock
+  CheckCircle, Compass, Home, MessageSquareText, Users, Globe, X, Send, BarChart3, ShieldCheck, Zap, Lock, Wallet
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { hashPassword, isValidUserId, isPasswordValid } from './authUtils';
@@ -37,37 +37,43 @@ const MainPage = ({ onStartBuilder, onStartExplorer, onStartCommunity, onStartRe
       
       {/* --- [B2B 파트너 제안 모달] --- */}
       {isContactOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsContactOpen(false)} />
-          <div className="relative bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-            <button onClick={() => setIsContactOpen(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors z-10">
-              <X size={24} className="text-gray-400" />
+          <div className="relative bg-white w-full max-w-2xl max-h-[90vh] rounded-[2rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
+            <button onClick={() => setIsContactOpen(false)} className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 hover:bg-gray-100 rounded-full transition-colors z-10">
+              <X size={22} className="text-gray-400" />
             </button>
-            <div className="flex flex-col lg:flex-row">
-              {/* 모달 좌측: 가치 제안 (학습 내용 반영) */}
-              <div className="lg:w-1/2 bg-gmg-camel p-10 text-white leading-tight">
-                <div className="inline-block px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">Partner</div>
-                <h2 className="text-3xl font-black mb-6">몽골 여행사<br/>성공 파트너,<br/>Go몽골</h2>
-                <div className="space-y-5">
-                  <div className="flex gap-4">
+            <div className="flex flex-col lg:flex-row min-h-0 flex-1 overflow-y-auto">
+              {/* 모달 좌측: 가치 제안 */}
+              <div className="lg:w-1/2 bg-gmg-camel p-6 sm:p-8 lg:p-10 text-white leading-tight shrink-0">
+                <div className="inline-block px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-widest mb-3">Partner</div>
+                <h2 className="text-2xl sm:text-3xl font-black mb-4 sm:mb-6">몽골 여행사<br/>성공 파트너,<br/>Go몽골</h2>
+                <div className="space-y-4 sm:space-y-5">
+                  <div className="flex gap-3 sm:gap-4">
                     <Zap size={20} className="shrink-0 text-orange-200"/>
-                    <p className="text-sm opacity-90 font-medium">
+                    <p className="text-xs sm:text-sm opacity-90 font-medium">
                       <b>손쉬운 고객 연결:</b><br/>고객이 직접 일정표와 함께 상담 신청
                     </p>
                   </div>
-                  <div className="flex gap-4">
+                  <div className="flex gap-3 sm:gap-4">
                     <ShieldCheck size={20} className="shrink-0 text-orange-200"/>
-                    <p className="text-sm opacity-90 font-medium">
+                    <p className="text-xs sm:text-sm opacity-90 font-medium">
                       <b>브랜드 신뢰도:</b><br/>Go몽골 인증 마크 부여
+                    </p>
+                  </div>
+                  <div className="flex gap-3 sm:gap-4">
+                    <Wallet size={20} className="shrink-0 text-orange-200"/>
+                    <p className="text-xs sm:text-sm opacity-90 font-medium">
+                      <b>저렴한 입점 비용:</b><br/>합리적인 비용으로 바로 시작
                     </p>
                   </div>
                 </div>
               </div>
               {/* 모달 우측: 빠른 회원가입 폼 */}
-              <div className="lg:w-1/2 p-10 bg-white">
-                <h3 className="text-xl font-black text-gray-800 mb-6">빠른 회원가입하고 입점하기</h3>
+              <div className="lg:w-1/2 p-5 sm:p-6 lg:p-10 bg-white min-h-0 overflow-y-auto">
+                <h3 className="text-lg sm:text-xl font-black text-gray-800 mb-4 sm:mb-6">빠른 회원가입하고 입점하기</h3>
                 <form
-                  className="space-y-4"
+                  className="space-y-3 sm:space-y-4"
                   onSubmit={async (e) => {
                     e.preventDefault();
                     if (!agencyForm.company_name.trim()) { setAgencyError('회사명을 입력하세요.'); return; }
