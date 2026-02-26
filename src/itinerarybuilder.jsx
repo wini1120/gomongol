@@ -369,7 +369,7 @@ const ItineraryBuilder = ({ onBack, onSaveSuccess }) => {
                     placeholder="가보고 싶은 곳, 식사·이동 선호 등 여행사에 전할 말을 적어주세요 (최대 500자)"
                     maxLength={500}
                     rows={3}
-                    className="w-full min-h-[88px] p-4 rounded-xl border border-gray-200 bg-gray-50/80 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:border-gmg-camel focus:ring-2 focus:ring-gmg-camel/20 resize-none overflow-hidden transition-all"
+                    className="w-full min-h-[88px] p-4 rounded-xl border border-gray-200 bg-gray-50/80 text-base text-gray-900 placeholder:text-gray-400 outline-none focus:border-gmg-camel focus:ring-2 focus:ring-gmg-camel/20 resize-none overflow-hidden transition-all"
                   />
                   <div className="flex justify-end mt-1.5" data-export-hide>
                     <span className="text-[10px] font-medium text-gray-400">{consultNote.length}/500</span>
@@ -543,6 +543,13 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
       }
     };
 
+    const validateKakaoLink = (link) => {
+      if (!link || !link.trim()) return true;
+      const kakaoPattern = /^https:\/\/open\.kakao\.com\/(o|me)\/[a-zA-Z0-9]+/;
+      return kakaoPattern.test(link.trim());
+    };
+    const isChatLinkValid = validateKakaoLink(postData.chatLink);
+
     const isFormValid =
       postData.title.trim().length >= 5 &&
       postData.description.trim() !== '' &&
@@ -551,7 +558,8 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
       userIdChecked &&
       isPasswordValid(postData.userPw) &&
       postData.userName.trim() !== '' &&
-      postData.nickname.trim() !== '';
+      postData.nickname.trim() !== '' &&
+      isChatLinkValid;
   
     return (
       <div className="animate-in slide-in-from-right-10 duration-500 bg-white min-h-screen">
@@ -563,7 +571,7 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
         <div className="px-6 py-8 space-y-10 pb-40 text-left">
           <section>
              <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><PenTool size={14}/> 00. Post Title * (5글자 이상)</label>
-             <input type="text" placeholder="매력적인 모집 공고 제목 (5글자 이상)" className="w-full bg-gray-50 border-none rounded-xl p-4 text-sm font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={postData.title} onChange={(e) => setPostData({...postData, title: e.target.value})} />
+             <input type="text" placeholder="매력적인 모집 공고 제목 (5글자 이상)" className="w-full bg-gray-50 border-none rounded-xl p-4 text-base font-bold outline-none focus:ring-2 focus:ring-gmg-camel" value={postData.title} onChange={(e) => setPostData({...postData, title: e.target.value})} />
              {postData.title.trim().length > 0 && postData.title.trim().length < 5 && (
                <p className="text-[10px] text-red-500 font-bold mt-1">제목은 5글자 이상 입력해 주세요.</p>
              )}
@@ -595,7 +603,7 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
   
           <section>
             <label className="flex items-center gap-2 text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest italic"><Smile size={14}/> 03. About Our Group *</label>
-            <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-sm font-medium outline-none resize-none focus:ring-2 focus:ring-gmg-green" value={postData.description} onChange={(e) => setPostData({...postData, description: e.target.value})} />
+            <textarea maxLength={300} placeholder="자기소개 및 여행 스타일 (300자 이내)" className="w-full h-32 bg-gray-50 rounded-[1.5rem] p-5 text-base font-medium outline-none resize-none focus:ring-2 focus:ring-gmg-green" value={postData.description} onChange={(e) => setPostData({...postData, description: e.target.value})} />
             <div className="text-right text-[10px] text-gray-300 font-bold mt-2">{postData.description.length} / 300</div>
           </section>
   
@@ -626,7 +634,7 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
                 placeholder="영문·숫자 3~20자"
                 maxLength={20}
                 autoComplete="username"
-                className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel"
+                className="w-full bg-white border rounded-xl p-4 text-base font-bold outline-none focus:border-gmg-camel"
                 value={postData.userId}
                 onChange={(e) => { setPostData({ ...postData, userId: e.target.value.replace(/[^a-zA-Z0-9]/g, '') }); setUserIdChecked(false); setUserIdDuplicate(false); }}
               />
@@ -652,7 +660,7 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
                   type="password"
                   placeholder="영문+숫자 조합 8자 이상"
                   autoComplete="new-password"
-                  className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel"
+                  className="w-full bg-white border rounded-xl p-4 text-base font-bold outline-none focus:border-gmg-camel"
                   value={postData.userPw}
                   onChange={(e) => setPostData({ ...postData, userPw: e.target.value })}
                 />
@@ -663,18 +671,18 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
 
             <div>
               <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">08. 이름 *</label>
-              <input type="text" placeholder="실명 또는 닉네임" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.userName} onChange={(e) => setPostData({ ...postData, userName: e.target.value })} />
+              <input type="text" placeholder="실명 또는 닉네임" className="w-full bg-white border rounded-xl p-4 text-base font-bold outline-none focus:border-gmg-camel" value={postData.userName} onChange={(e) => setPostData({ ...postData, userName: e.target.value })} />
             </div>
 
             <div>
               <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">09. 게시글 표시 닉네임 *</label>
-              <input type="text" placeholder="게시판에 보일 별명" className="w-full bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.nickname} onChange={(e) => setPostData({ ...postData, nickname: e.target.value })} />
+              <input type="text" placeholder="게시판에 보일 별명" className="w-full bg-white border rounded-xl p-4 text-base font-bold outline-none focus:border-gmg-camel" value={postData.nickname} onChange={(e) => setPostData({ ...postData, nickname: e.target.value })} />
             </div>
 
             <div>
               <label className="text-[10px] font-black text-gray-400 mb-2 block uppercase tracking-widest italic">10. KakaoTalk Link</label>
               <div className="flex gap-2">
-                <input type="text" placeholder="오픈채팅방 링크 (https://...)" className="flex-1 bg-white border rounded-xl p-4 text-sm font-bold outline-none focus:border-gmg-camel" value={postData.chatLink} onChange={(e) => setPostData({ ...postData, chatLink: e.target.value })} />
+                <input type="text" placeholder="오픈채팅방 링크 (https://open.kakao.com/o/...)" className="flex-1 bg-white border rounded-xl p-4 text-base font-bold outline-none focus:border-gmg-camel" value={postData.chatLink} onChange={(e) => setPostData({ ...postData, chatLink: e.target.value })} />
                 <button
                   onClick={() => window.open('https://open.kakao.com/o/g', '_blank')}
                   className="bg-yellow-400 text-yellow-900 px-4 rounded-xl font-black text-[10px] flex items-center gap-1 shadow-sm hover:bg-yellow-300 transition-all"
@@ -682,13 +690,18 @@ const PostCreationForm = ({ scheduleData, isSaving, onComplete, onBack }) => {
                   개설 <ExternalLink size={12} />
                 </button>
               </div>
+              {postData.chatLink.trim() !== '' && !isChatLinkValid && (
+                <p className="text-[10px] text-red-500 font-bold mt-1">올바른 카카오톡 오픈채팅 링크 형식이 아닙니다. (https://open.kakao.com/o/... 또는 /me/...)</p>
+              )}
             </div>
           </section>
         </div>
   
         <footer className="fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl p-6 border-t border-gray-50 z-[70]">
           {!isFormValid && !isSaving && (
-            <p className="text-[10px] text-gray-400 font-bold mb-2 text-center">제목(5글자↑), 소개, 연령, 아이디 사용가능, 비밀번호(영문+숫자 8자↑), 이름, 닉네임을 모두 입력해 주세요.</p>
+            <p className="text-[10px] text-gray-400 font-bold mb-2 text-center">
+              {!isChatLinkValid && postData.chatLink.trim() !== '' ? '카카오 오픈채팅 링크 형식을 확인해 주세요.' : '제목(5글자↑), 소개, 연령, 아이디 사용가능, 비밀번호(영문+숫자 8자↑), 이름, 닉네임을 모두 입력해 주세요.'}
+            </p>
           )}
           <button 
             type="button"
