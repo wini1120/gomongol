@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ChevronLeft, ChevronRight, Home, Users, MessageSquareText, Compass, Plus, Star, X,
+  ChevronLeft, ChevronRight, Home, Users, MessageSquareText, Compass, Plus, Star, X, Flag,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
+
+const getAgencyName = (review) => review.agency_user?.company_name || review.agency_name_other || '여행사';
+const hasAgencyLink = (review) => !!review.agency_user?.user_no;
 
 const REGION_LABELS = { 고비: '#고비', 홉스골: '#홉스골', 중부: '#중부' };
 const parseRegions = (regionStr) => (regionStr || '').split(',').map((r) => r.trim()).filter(Boolean);
@@ -21,6 +24,9 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
   const [isLoading, setIsLoading] = useState(true);
   const [modalReview, setModalReview] = useState(null);
   const [modalPhotoIndex, setModalPhotoIndex] = useState(0);
+  const [reportReviewId, setReportReviewId] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -117,16 +123,23 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
                       <img src={thumb} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); agency.user_no && onAgencyClick(agency); }}
-                        className="absolute top-4 right-4 px-2.5 py-1 rounded-lg bg-white/95 text-gray-800 text-[10px] font-black shadow-sm hover:bg-white"
+                        onClick={(e) => { e.stopPropagation(); hasAgencyLink(review) && onAgencyClick(agency); }}
+                        className="absolute top-4 right-4 px-2.5 py-1 rounded-lg bg-white/95 text-gray-800 text-[10px] font-black shadow-sm hover:bg-white disabled:opacity-70"
+                        disabled={!hasAgencyLink(review)}
                       >
-                        {agency.company_name || '여행사'}
+                        {getAgencyName(review)}{!hasAgencyLink(review) && review.agency_name_other ? ' (미등록)' : ''}
                       </button>
                       <div className="absolute bottom-2 left-2 right-2">
                         <h3 className="text-white font-extrabold text-lg lg:text-xl drop-shadow-md line-clamp-2">{review.title}</h3>
                       </div>
                     </div>
                     <div className="p-3 flex flex-col min-h-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <span className="text-xs font-bold text-gray-600">{review.writer_nickname || '익명'}</span>
+                        {review.reviewed_after_use && (
+                          <span className="px-2 py-0.5 rounded-md bg-green-100 text-green-700 text-[10px] font-black">이용 후 작성</span>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <p className="text-[10px] font-black text-gray-400 uppercase">기간</p>
@@ -223,6 +236,21 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 {/* 일정: 기간/인원/여행지 - 항상 노출, 스크롤 밖에 고정 */}
                 <div className="flex-none p-4 pb-2">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-sm font-bold text-gray-700">{modalReview.writer_nickname || '익명'}</span>
+                      {modalReview.reviewed_after_use && (
+                        <span className="px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-black">이용 후 작성</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setReportReviewId(modalReview.id); setReportReason(''); }}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100 hover:bg-red-100 transition-colors"
+                    >
+                      <Flag size={14} /> 신고
+                    </button>
+                  </div>
                   <div className="grid grid-cols-3 gap-3 mb-3">
                     <div className="bg-gray-50 rounded-xl px-3 py-3 border border-gray-100">
                       <p className="text-[10px] font-black text-gray-400 uppercase mb-1">기간</p>
@@ -239,11 +267,12 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
                   </div>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); agency.user_no && onAgencyClick(agency); setModalReview(null); }}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 text-sm font-black border border-amber-100"
+                    onClick={(e) => { e.stopPropagation(); hasAgencyLink(modalReview) && onAgencyClick(agency); setModalReview(null); }}
+                    disabled={!hasAgencyLink(modalReview)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 text-sm font-black border border-amber-100 disabled:opacity-70"
                   >
                     <Star size={14} className="text-amber-500" />
-                    {agency.company_name || '여행사'}
+                    {getAgencyName(modalReview)}{!hasAgencyLink(modalReview) && modalReview.agency_name_other ? ' (미등록)' : ''}
                   </button>
                 </div>
                 {/* 후기 내용만 스크롤 */}
@@ -261,6 +290,54 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
           </div>
         );
       })()}
+
+      {/* 신고 모달 */}
+      {reportReviewId && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-lg font-black text-gray-800 mb-2">후기 신고</h3>
+            <p className="text-xs text-gray-500 mb-4">허위·비방·부적절한 후기라면 사유를 적어 주세요. 검토 후 조치하겠습니다.</p>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="신고 사유 (선택)"
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-gmg-camel resize-none"
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => { setReportReviewId(null); setReportReason(''); }}
+                className="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-gray-600"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setReportSubmitting(true);
+                  try {
+                    const { error } = await supabase.from('review_report').insert([{ travel_review_id: reportReviewId, reason: (reportReason || '').trim() || '신고 접수' }]);
+                    if (error) throw error;
+                    alert('신고가 접수되었습니다. 검토 후 조치하겠습니다.');
+                    setReportReviewId(null);
+                    setReportReason('');
+                  } catch (err) {
+                    console.error(err);
+                    alert('신고 접수에 실패했습니다.');
+                  } finally {
+                    setReportSubmitting(false);
+                  }
+                }}
+                disabled={reportSubmitting}
+                className="flex-1 py-3 rounded-xl bg-red-100 text-red-800 font-black disabled:opacity-50"
+              >
+                {reportSubmitting ? '접수 중...' : '신고 접수'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

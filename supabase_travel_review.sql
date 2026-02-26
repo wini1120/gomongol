@@ -9,16 +9,26 @@ ALTER TABLE agency_user ADD COLUMN IF NOT EXISTS company_logo_url TEXT;
 -- 2) 여행후기 메인 테이블
 CREATE TABLE IF NOT EXISTS travel_review (
   id                BIGSERIAL PRIMARY KEY,
-  agency_user_id    BIGINT NOT NULL REFERENCES agency_user(user_no) ON DELETE CASCADE,
+  agency_user_id    BIGINT REFERENCES agency_user(user_no) ON DELETE SET NULL,
+  agency_name_other TEXT,                   -- 기타(미등록) 여행사명
   title             TEXT NOT NULL,
   nights            INT NOT NULL DEFAULT 1,
   people            INT NOT NULL DEFAULT 1,
   region            TEXT NOT NULL,           -- '고비' | '홉스골' | '중부'
   description       TEXT,
-  thumbnail_url     TEXT,                   -- 첫 번째 사진 URL (썸네일)
+  thumbnail_url     TEXT,
+  writer_nickname   TEXT,
+  reviewed_after_use BOOLEAN DEFAULT false,
+  travel_user_id    BIGINT REFERENCES travel_user(user_no) ON DELETE SET NULL,
   is_delete         CHAR(1) NOT NULL DEFAULT 'X',
+  deleted_at        TIMESTAMPTZ,
+  deleted_reason    TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- [이미 travel_review가 있는 경우] 컬럼 추가는 supabase_travel_review_extra.sql 실행
+ALTER TABLE travel_review ADD COLUMN IF NOT EXISTS writer_nickname TEXT;
+ALTER TABLE travel_review ADD COLUMN IF NOT EXISTS reviewed_after_use BOOLEAN DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_travel_review_agency ON travel_review(agency_user_id);
 CREATE INDEX IF NOT EXISTS idx_travel_review_created ON travel_review(created_at DESC);
