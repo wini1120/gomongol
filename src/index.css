@@ -7,6 +7,15 @@
   --color-gmg-bg: #F9F7F2;
 }
 
+/* 모바일에서 input/textarea 포커스 시 자동 확대 방지 (iOS 등) */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* 스크롤바 숨기기 */
 @utility no-scrollbar {
   -ms-overflow-style: none;
