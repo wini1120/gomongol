@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, Home, Users, MessageSquareText, Compass, Plus, Star, X, Flag,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ const getPhotoList = (review) => {
 };
 
 const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick, onGoToCommunity }) => {
+  const navigate = useNavigate();
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalReview, setModalReview] = useState(null);
@@ -116,7 +118,7 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
                 return (
                   <div
                     key={review.id}
-                    onClick={() => onReviewClick(review)}
+                    onClick={() => (review?.id != null ? navigate('/review/' + review.id) : (onReviewClick && onReviewClick(review)))}
                     className="group flex flex-col cursor-pointer bg-white rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden"
                   >
                     <div className="relative h-40 overflow-hidden bg-gray-100">
