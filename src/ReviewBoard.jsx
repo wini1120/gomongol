@@ -116,7 +116,7 @@ const ReviewBoard = ({ onBack, onStartReviewWrite, onReviewClick, onAgencyClick,
                 return (
                   <div
                     key={review.id}
-                    onClick={() => { setModalReview(review); setModalPhotoIndex(0); }}
+                    onClick={() => onReviewClick(review)}
                     className="group flex flex-col cursor-pointer bg-white rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-xl hover:-translate-y-1 text-left overflow-hidden"
                   >
                     <div className="relative h-40 overflow-hidden bg-gray-100">
