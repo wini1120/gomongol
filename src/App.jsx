@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainPage from './mainpage';
 import ItineraryBuilder from './itinerarybuilder';
 import Explorer from './explorer';
@@ -12,6 +13,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { X } from 'lucide-react';
 
 function App() {
+  const navigate = useNavigate();
   const [view, setView] = useState('main'); 
   const [selectedPost, setSelectedPost] = useState(null);
   const [selectedReview, setSelectedReview] = useState(null);
@@ -22,16 +24,28 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handlePostClick = (post) => {
+    if (post?.id != null) {
+      navigate('/post/' + post.id);
+      return;
+    }
     setSelectedPost(post);
     setView('postDetail');
   };
 
   const handleReviewClick = (review) => {
+    if (review?.id != null) {
+      navigate('/review/' + review.id);
+      return;
+    }
     setSelectedReview(review);
     setView('reviewDetail');
   };
 
   const handleAgencyClick = (agency) => {
+    if (agency?.user_no != null) {
+      navigate('/agency/' + agency.user_no);
+      return;
+    }
     setSelectedAgency(agency);
     setView('agencyDetail');
   };
