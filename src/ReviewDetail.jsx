@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChevronLeft, Star, Calendar, Users, MapPin, Flag } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
-const REGION_LABELS = { 고비: '#고비', 홉스골: '#홉스골', 중부: '#중부' };
 const parseRegions = (regionStr) => (regionStr || '').split(',').map((r) => r.trim()).filter(Boolean);
 const getAgencyName = (r) => r.agency_user?.company_name || r.agency_name_other || '여행사';
 const hasAgencyLink = (r) => !!r.agency_user?.user_no;
@@ -70,11 +69,6 @@ const ReviewDetail = ({ review, onBack, onAgencyClick }) => {
               </button>
             </div>
             {review.description && <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{review.description}</p>}
-            <div className="flex flex-wrap gap-2">
-              {parseRegions(review.region).map((r) => (
-                <span key={r} className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-500 text-xs font-black">{REGION_LABELS[r] || r}</span>
-              ))}
-            </div>
           </div>
         </div>
 
